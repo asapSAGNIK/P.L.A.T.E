@@ -1,0 +1,29 @@
+{
+  "name": "plate-ai-chef",
+  "version": "1.0.0",
+  "description": "Your Personal AI Chef web application",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend & npm run dev --workspace=backend",
+    "install-all": "npm install --workspaces",
+    "test": "npm test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "build": "npm run build --workspace=frontend"
+  },
+  "keywords": [
+    "cooking",
+    "AI",
+    "recipes",
+    "personal chef",
+    "web-app",
+    "nextjs",
+    "nodejs",
+    "supabase"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+} 
