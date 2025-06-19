@@ -16,6 +16,8 @@ Plate is a web application that helps users cook meals using available ingredien
 - Profile management
 - Session management
 - Password recovery
+- **JWT authentication and Google OAuth are both supported**
+- **JWT must be stored securely (prefer httpOnly cookie or secure storage)**
 
 ### 2. Main Cooking Paths
 #### A. Cook within the Fridge
@@ -36,6 +38,7 @@ Plate is a web application that helps users cook meals using available ingredien
 - Creative recipe modifications
 - Optional voice interaction
 - Cooking tips and techniques
+- **AI commentary and twist flows are powered by Gemini via backend endpoints**
 
 ### 4. Recipe Management
 - Save recipes to "Chef's History"
@@ -51,6 +54,10 @@ Plate is a web application that helps users cook meals using available ingredien
 - Real-time recipe suggestions
 - Voice interaction capability
 - Recipe history management
+- **All frontend API calls now use backend endpoints via NEXT_PUBLIC_API_URL**
+- **Type safety and data shape consistency are maintained**
+- **Error handling and CORS are enforced**
+- **Update environment variables for different environments**
 
 ### Backend
 - Secure user authentication
@@ -58,6 +65,8 @@ Plate is a web application that helps users cook meals using available ingredien
 - AI integration
 - API management
 - Data persistence
+- **Supabase is the database with RLS**
+- **Rate limiting and security best practices are enforced**
 
 ### AI Integration
 - Spoonacular API for recipe data
@@ -133,6 +142,17 @@ Plate is a web application that helps users cook meals using available ingredien
 - Recipe search and display
 - Simple AI integration
 - Basic recipe history
+- **All frontend API calls now use backend endpoints via NEXT_PUBLIC_API_URL**
+- **JWT authentication and Google OAuth are both supported**
+- **AI commentary and twist flows are powered by Gemini via backend endpoints**
+- **Supabase is the database with RLS**
+- **Error handling and CORS are enforced**
+- **Type safety and data shape consistency are maintained**
+- **Update environment variables for different environments**
+- **Backward compatibility for authentication is maintained**
+- **JWT must be stored securely**
+- **Rate limiting and security best practices are enforced**
+- **Test endpoints using Postman, curl, or your preferred API client**
 
 ### Phase 2: Core Features
 - Advanced recipe generation

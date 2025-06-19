@@ -25,6 +25,8 @@ This roadmap is designed to be iterative, allowing us to build a solid foundatio
     *   Implement user authentication endpoints (`/auth/register`, `/auth/login`) as per `api-docs.md`. ✅
     *   Integrate `bcrypt` for password hashing and JWT for token generation. ✅
     *   Connect to Supabase using a suitable ORM (e.g., Prisma, if decided) or direct client. ✅
+    *   **Implement Google OAuth authentication (Passport.js) with Supabase integration.** ✅
+    *   **Resolve all linter/type errors and ensure robust environment variable management and error handling.** ✅
 
 4.  **Frontend Core (Next.js):** ✅
     *   Develop the Landing Page (`/` route) with Sign In/Register UI. ✅
@@ -40,7 +42,7 @@ This roadmap is designed to be iterative, allowing us to build a solid foundatio
     *   Develop a page (e.g., `/recipes/browse`) to display recipes fetched from Spoonacular. ✅ (Displayed in dashboard)
     *   Create `RecipeCard` components to show basic recipe information. ✅ (Basic card in dashboard)
 
-**Expected Outcome (End of Phase 1):** ✅ A functional web application where users can register, log in, and browse/search for basic recipes using Spoonacular data.
+**Expected Outcome (End of Phase 1):** ✅ A functional web application where users can register (with email/password or Google), log in, and browse/search for basic recipes using Spoonacular data.
 
 ---
 
@@ -55,11 +57,17 @@ This roadmap is designed to be iterative, allowing us to build a solid foundatio
     *   Implement `user_ingredients` table and associated backend API to manage user's available ingredients. ✅
     *   Refine `POST /recipes/find-by-ingredients` API to intelligently match user's ingredients with Spoonacular recipes. ✅
 
-2.  **Advanced AI Integration (Gemini for Commentary & Twists):**
-    *   Create Next.js API routes for Gemini integration (`/api/openai/commentary`, `/api/openai/twists`). ⏳
-    *   Integrate Gemini to generate Gordon Ramsay-style commentary and creative recipe twists. ⏳
-    *   Update `recipes` and `recipe_ai_enhancements` tables in Supabase to store AI-generated content. ⏳
-    *   Display AI commentary and twists on recipe detail pages. ⏳
+2.  **Advanced AI Integration (Gemini for Commentary & Twists):** ✅ (Backend endpoints complete)
+    *   **Implement backend endpoints for Gemini AI commentary and creative twists (`POST /recipes/ai/commentary`, `POST /recipes/ai/twist`).** ✅
+    *   Integrate Gemini to generate Gordon Ramsay-style commentary and creative recipe twists. ✅
+    *   Update `recipes` and `recipe_ai_enhancements` tables in Supabase to store AI-generated content. ✅
+    *   Display AI commentary and twists on recipe detail pages. ✅
+    *   All frontend API calls use backend endpoints via NEXT_PUBLIC_API_URL. ✅
+    *   JWT authentication and Google OAuth integration. ✅
+    *   Type safety and linter error resolution. ✅
+    *   CORS and data shape compatibility. ✅
+    *   Error handling and testing. ✅
+    *   Systematic update of all API calls and flows. ✅
 
 3.  **Gordon Ramsay Voice Interaction:**
     *   Integrate Amazon Polly for text-to-speech conversion. ⏳

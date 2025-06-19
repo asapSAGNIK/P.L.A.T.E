@@ -155,8 +155,14 @@
 5. Settings → Application State
 
 ## Security Considerations
-1. Authentication Flow
+1. Authentication Flow (JWT required for all authenticated flows; Google OAuth and email/password both supported)
 2. Data Encryption
-3. API Security
-4. User Data Protection
-5. Session Management 
+3. API Security (CORS enforced, allowed origins set in backend)
+4. User Data Protection (Supabase with RLS)
+5. Session Management (JWT stored securely)
+6. Rate Limiting (100/min for authenticated, 20/min for unauthenticated)
+7. Type Safety and Data Shape Consistency (frontend and backend types in sync)
+8. Error Handling (consistent error response structure)
+9. Environment Variables (NEXT_PUBLIC_API_URL for API calls; update for each environment)
+10. Testing Flows (use Postman/curl for API testing)
+11. Backward Compatibility (auth and API flows maintained) 

@@ -46,7 +46,31 @@ frontend/
 └── tsconfig.json
 ```
 
-## 2. Component Design and Structure
+## 2. API Integration Best Practices
+- **All API calls use the backend endpoints via the environment variable:**
+  - `${process.env.NEXT_PUBLIC_API_URL}`
+  - Do NOT use local Next.js API routes for backend data.
+- **JWT Handling:**
+  - Store JWT securely (prefer httpOnly cookie or secure storage).
+  - Attach JWT in the Authorization header for all requests.
+- **Google OAuth:**
+  - Supported via backend; after login, use the issued JWT for all API calls.
+- **Gemini Integration:**
+  - AI commentary and creative twists are fetched from backend endpoints `/recipes/ai/commentary` and `/recipes/ai/twist`.
+- **Supabase & RLS:**
+  - All user data is stored in Supabase with Row-Level Security enabled for privacy.
+- **Type Safety:**
+  - All API responses are type-checked; keep frontend and backend types in sync.
+- **CORS:**
+  - All requests are CORS-enabled; ensure allowed origins are set in backend.
+- **Error Handling:**
+  - Handle errors gracefully; display user-friendly messages.
+  - All error responses follow a consistent structure.
+- **Environment Variables:**
+  - Use `.env.local` for local development, `.env.production` for production.
+  - Update `NEXT_PUBLIC_API_URL` as needed for different environments.
+
+## 3. Component Design and Structure
 
 ### Atomic Design Principles
 - **Atoms**: Basic HTML elements (buttons, inputs, labels, icons)
@@ -64,7 +88,7 @@ frontend/
 - Use semantic HTML, ARIA attributes, and focus management.
 - Ensure keyboard navigation and screen reader compatibility.
 
-## 3. State Management
+## 4. State Management
 
 ### Global State: Redux Toolkit
 - Manages complex application-wide state (user authentication, global settings, recipe data).
@@ -77,7 +101,7 @@ frontend/
 - Handles server-side data fetching, caching, synchronization, and error handling.
 - Reduces boilerplate for API calls and improves user experience with optimistic updates and instant UI feedback.
 
-## 4. Styling
+## 5. Styling
 
 ### Tailwind CSS
 - Utility-first CSS framework for rapid UI development.
@@ -86,20 +110,6 @@ frontend/
 
 ### CSS Modules / Global CSS
 - Limited use for specific global styles or complex animations not easily achievable with Tailwind utilities.
-
-## 5. API Integration
-
-### Axios
-- HTTP client for making API requests to the backend.
-- Configured with interceptors for handling authentication tokens, error responses, and request retries.
-
-### Next.js API Routes (Backend-for-Frontend)
-- Used for handling sensitive API calls (e.g., to Spoonacular or OpenAI) to protect API keys and perform server-side data transformations before sending to the frontend.
-- Acts as a proxy to external APIs and internal backend services.
-
-### WebSocket Integration (Socket.io Client)
-- For real-time features like cooking guidance and voice interaction.
-- Establishes a persistent connection for bidirectional communication with the backend.
 
 ## 6. Routing
 

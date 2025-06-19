@@ -2,18 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import logger from '../config/logger';
 
-// Extend Request interface to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        userId: string;
-        email: string;
-      };
-    }
-  }
-}
-
 export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -23,11 +11,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key') as {
-      userId: string;
-      email: string;
-    };
-    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key') as any;
     req.user = decoded;
     next();
   } catch (error) {
@@ -42,10 +26,7 @@ export const optionalAuth = (req: Request, res: Response, next: NextFunction) =>
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key') as {
-        userId: string;
-        email: string;
-      };
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key') as any;
       req.user = decoded;
     } catch (error) {
       logger.warn('Optional auth failed:', error);
