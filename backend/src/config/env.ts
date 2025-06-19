@@ -25,12 +25,15 @@ const envSchema = z.object({
   PORT: z.string().transform(Number).default('5000'),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters long'),
   // Add other API keys with proper validation
   SPOONACULAR_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   AWS_POLLY_ACCESS_KEY_ID: z.string().optional(),
   AWS_POLLY_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_REGION: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
 });
 
 // Type for the environment variables
