@@ -55,4 +55,78 @@ router.post('/find-by-ingredients', authenticateToken, async (req: Request, res:
   }
 });
 
+// --- Gemini AI Endpoints ---
+
+const geminiCommentarySchema = z.object({
+  recipeTitle: z.string().min(1),
+  ingredients: z.array(z.string().min(1)),
+  instructions: z.string().min(1),
+});
+
+router.post('/ai/commentary', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Gemini API key not configured' });
+    }
+    const { recipeTitle, ingredients, instructions } = geminiCommentarySchema.parse(req.body);
+    const prompt = `You are Gordon Ramsay. Give a witty, critical, and helpful commentary on this recipe.\nTitle: ${recipeTitle}\nIngredients: ${ingredients.join(', ')}\nInstructions: ${instructions}`;
+    const response = await axios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+      },
+      {
+        params: { key: env.GEMINI_API_KEY },
+      }
+    );
+    const aiText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'No commentary generated.';
+    res.json({ commentary: aiText });
+  } catch (err) {
+    logger.error('Error in POST /recipes/ai/commentary:', err);
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: err.errors });
+    }
+    if (axios.isAxiosError(err) && err.response) {
+      return res.status(err.response.status).json({ error: err.response.data || 'Gemini API error' });
+    }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const geminiTwistSchema = z.object({
+  recipeTitle: z.string().min(1),
+  ingredients: z.array(z.string().min(1)),
+  instructions: z.string().min(1),
+});
+
+router.post('/ai/twist', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Gemini API key not configured' });
+    }
+    const { recipeTitle, ingredients, instructions } = geminiTwistSchema.parse(req.body);
+    const prompt = `You are Gordon Ramsay. Suggest a creative twist or improvement for this recipe.\nTitle: ${recipeTitle}\nIngredients: ${ingredients.join(', ')}\nInstructions: ${instructions}`;
+    const response = await axios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+      },
+      {
+        params: { key: env.GEMINI_API_KEY },
+      }
+    );
+    const aiText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'No twist generated.';
+    res.json({ twist: aiText });
+  } catch (err) {
+    logger.error('Error in POST /recipes/ai/twist:', err);
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: err.errors });
+    }
+    if (axios.isAxiosError(err) && err.response) {
+      return res.status(err.response.status).json({ error: err.response.data || 'Gemini API error' });
+    }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router; 

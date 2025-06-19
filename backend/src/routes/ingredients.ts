@@ -16,7 +16,7 @@ const ingredientSchema = z.object({
 // GET /ingredients - List user's ingredients
 router.get('/', authenticateToken, async (req: Request, res: Response) => {
   const supabase = (req as any).supabase;
-  const userId = req.user?.userId;
+  const userId = (req.user as any)?.userId;
   try {
     const { data, error } = await supabase
       .from('user_ingredients')
@@ -48,7 +48,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 // POST /ingredients - Add ingredient
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
   const supabase = (req as any).supabase;
-  const userId = req.user?.userId;
+  const userId = (req.user as any)?.userId;
   try {
     const parsed = ingredientSchema.parse(req.body);
     // Find or create ingredient in ingredients table
@@ -103,7 +103,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 // DELETE /ingredients/:id - Remove ingredient
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {
   const supabase = (req as any).supabase;
-  const userId = req.user?.userId;
+  const userId = (req.user as any)?.userId;
   const { id } = req.params;
   try {
     // Only delete if the ingredient belongs to the user

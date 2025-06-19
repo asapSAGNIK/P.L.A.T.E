@@ -12,6 +12,10 @@ Include the token in the Authorization header:
 ```
 Authorization: Bearer <token>
 ```
+- Both Google OAuth and email/password authentication are supported. The backend issues a JWT for both flows.
+- Store JWT securely (prefer httpOnly cookie for web, or secure storage for mobile).
+- All endpoints are CORS-enabled for allowed frontend origins.
+- Supabase (PostgreSQL) is used as the database, with Row-Level Security (RLS) enabled for user data.
 
 ## API Endpoints
 
@@ -65,6 +69,13 @@ Response:
   }
 }
 ```
+
+#### Google OAuth
+```http
+GET /auth/google
+```
+- Redirects to Google for authentication, then issues a JWT on callback.
+- Use the JWT for all subsequent API requests.
 
 ### User Management
 
@@ -210,76 +221,19 @@ Request Body:
 }
 ```
 
-### Cooking Session
-
-#### Start Cooking Session
-```http
-POST /cooking-sessions
-```
-Request Body:
-```json
-{
-  "recipeId": "string",
-  "servings": "number"
-}
-```
-Response:
-```json
-{
-  "sessionId": "string",
-  "recipe": {
-    "id": "string",
-    "title": "string",
-    "instructions": [{
-      "step": "number",
-      "description": "string",
-      "tips": "string"
-    }]
-  }
-}
-```
-
-#### Update Cooking Progress
-```http
-PUT /cooking-sessions/{sessionId}/progress
-```
-Request Body:
-```json
-{
-  "step": "number",
-  "completed": "boolean",
-  "notes": "string",
-  "timeSpent": "number"
-}
-```
-
-#### Complete Cooking Session
-```http
-PUT /cooking-sessions/{sessionId}/complete
-```
-Request Body:
-```json
-{
-  "feedback": {
-    "rating": "number",
-    "comments": "string",
-    "difficulties": ["string"]
-  }
-}
-```
-
 ### AI Chef Features
 
 #### Get Gordon Ramsay Commentary
 ```http
-POST /ai/commentary
+POST /recipes/ai/commentary
 ```
 Request Body:
 ```json
 {
   "recipeId": "string",
-  "step": "number",
-  "context": "string"
+  "title": "string",
+  "ingredients": ["string"],
+  "instructions": ["string"]
 }
 ```
 Response:
@@ -292,23 +246,21 @@ Response:
 
 #### Get Creative Twists
 ```http
-POST /ai/twists
+POST /recipes/ai/twist
 ```
 Request Body:
 ```json
 {
   "recipeId": "string",
-  "ingredients": ["string"]
+  "title": "string",
+  "ingredients": ["string"],
+  "instructions": ["string"]
 }
 ```
 Response:
 ```json
 {
-  "twists": [{
-    "description": "string",
-    "ingredients": ["string"],
-    "instructions": "string"
-  }]
+  "twist": "string"
 }
 ```
 
@@ -333,6 +285,25 @@ Response:
   "text": "string"
 }
 ```
+
+## Integration Notes
+- All frontend API calls should use the environment variable: `${process.env.NEXT_PUBLIC_API_URL}`
+- CORS is enabled for allowed origins. If you get a CORS error, check your backend CORS config.
+- Data shape between backend and frontend is consistent and type-safe.
+- Error responses follow this structure:
+```json
+{
+  "error": "string",
+  "message": "string",
+  "details": {}
+}
+```
+- Rate limiting is enforced (100 requests/min for authenticated, 20/min for unauthenticated).
+- Versioning: All endpoints are versioned (e.g., /v1/...). Breaking changes only in major versions.
+- Test endpoints using Postman, curl, or your preferred API client.
+- Gemini is used for AI commentary and creative twists. Spoonacular is used for recipe data.
+- Supabase is the database, with RLS for user data security.
+- Backward compatibility is maintained for authentication and API flows.
 
 ## Error Responses
 
