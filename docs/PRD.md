@@ -12,12 +12,9 @@ Plate is a web application that helps users cook meals using available ingredien
 ## Core Features
 
 ### 1. User Authentication
-- User registration and login
+- **Google sign-in via Supabase only**
 - Profile management
-- Session management
-- Password recovery
-- **JWT authentication and Google OAuth are both supported**
-- **JWT must be stored securely (prefer httpOnly cookie or secure storage)**
+- Session management (Supabase)
 
 ### 2. Main Cooking Paths
 #### A. Cook within the Fridge
@@ -143,14 +140,13 @@ Plate is a web application that helps users cook meals using available ingredien
 - Simple AI integration
 - Basic recipe history
 - **All frontend API calls now use backend endpoints via NEXT_PUBLIC_API_URL**
-- **JWT authentication and Google OAuth are both supported**
+- **Supabase Google Auth is the only supported authentication method**
 - **AI commentary and twist flows are powered by Gemini via backend endpoints**
 - **Supabase is the database with RLS**
 - **Error handling and CORS are enforced**
 - **Type safety and data shape consistency are maintained**
 - **Update environment variables for different environments**
-- **Backward compatibility for authentication is maintained**
-- **JWT must be stored securely**
+- **Supabase manages JWTs and session security**
 - **Rate limiting and security best practices are enforced**
 - **Test endpoints using Postman, curl, or your preferred API client**
 

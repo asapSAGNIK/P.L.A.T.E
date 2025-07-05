@@ -7,75 +7,18 @@ https://api.plate-app.com/v1
 ```
 
 ## Authentication
-All API requests require authentication using JWT tokens.
+All API requests require authentication using a **Supabase JWT** obtained via Google sign-in.
 Include the token in the Authorization header:
 ```
-Authorization: Bearer <token>
+Authorization: Bearer <supabase_jwt>
 ```
-- Both Google OAuth and email/password authentication are supported. The backend issues a JWT for both flows.
-- Store JWT securely (prefer httpOnly cookie for web, or secure storage for mobile).
+- **Only Google sign-in via Supabase is supported.**
+- The backend verifies Supabase JWTs for all protected endpoints.
+- Store JWT securely (Supabase manages session).
 - All endpoints are CORS-enabled for allowed frontend origins.
 - Supabase (PostgreSQL) is used as the database, with Row-Level Security (RLS) enabled for user data.
 
 ## API Endpoints
-
-### Authentication
-
-#### Register User
-```http
-POST /auth/register
-```
-Request Body:
-```json
-{
-  "email": "string",
-  "password": "string",
-  "name": "string",
-  "dietaryPreferences": ["string"],
-  "allergies": ["string"]
-}
-```
-Response:
-```json
-{
-  "token": "string",
-  "user": {
-    "id": "string",
-    "email": "string",
-    "name": "string"
-  }
-}
-```
-
-#### Login
-```http
-POST /auth/login
-```
-Request Body:
-```json
-{
-  "email": "string",
-  "password": "string"
-}
-```
-Response:
-```json
-{
-  "token": "string",
-  "user": {
-    "id": "string",
-    "email": "string",
-    "name": "string"
-  }
-}
-```
-
-#### Google OAuth
-```http
-GET /auth/google
-```
-- Redirects to Google for authentication, then issues a JWT on callback.
-- Use the JWT for all subsequent API requests.
 
 ### User Management
 
@@ -263,115 +206,3 @@ Response:
   "twist": "string"
 }
 ```
-
-### Voice Interaction
-
-#### Get Voice Instructions
-```http
-POST /voice/instructions
-```
-Request Body:
-```json
-{
-  "recipeId": "string",
-  "step": "number",
-  "voiceStyle": "string"
-}
-```
-Response:
-```json
-{
-  "audioUrl": "string",
-  "text": "string"
-}
-```
-
-## Integration Notes
-- All frontend API calls should use the environment variable: `${process.env.NEXT_PUBLIC_API_URL}`
-- CORS is enabled for allowed origins. If you get a CORS error, check your backend CORS config.
-- Data shape between backend and frontend is consistent and type-safe.
-- Error responses follow this structure:
-```json
-{
-  "error": "string",
-  "message": "string",
-  "details": {}
-}
-```
-- Rate limiting is enforced (100 requests/min for authenticated, 20/min for unauthenticated).
-- Versioning: All endpoints are versioned (e.g., /v1/...). Breaking changes only in major versions.
-- Test endpoints using Postman, curl, or your preferred API client.
-- Gemini is used for AI commentary and creative twists. Spoonacular is used for recipe data.
-- Supabase is the database, with RLS for user data security.
-- Backward compatibility is maintained for authentication and API flows.
-
-## Error Responses
-
-All endpoints may return the following error responses:
-
-### 400 Bad Request
-```json
-{
-  "error": "string",
-  "message": "string",
-  "details": {}
-}
-```
-
-### 401 Unauthorized
-```json
-{
-  "error": "Unauthorized",
-  "message": "Invalid or expired token"
-}
-```
-
-### 403 Forbidden
-```json
-{
-  "error": "Forbidden",
-  "message": "Insufficient permissions"
-}
-```
-
-### 404 Not Found
-```json
-{
-  "error": "Not Found",
-  "message": "Resource not found"
-}
-```
-
-### 500 Internal Server Error
-```json
-{
-  "error": "Internal Server Error",
-  "message": "An unexpected error occurred"
-}
-```
-
-## Rate Limiting
-- 100 requests per minute for authenticated users
-- 20 requests per minute for unauthenticated users
-- Rate limit headers included in all responses:
-  - X-RateLimit-Limit
-  - X-RateLimit-Remaining
-  - X-RateLimit-Reset
-
-## WebSocket Endpoints
-
-### Real-time Cooking Guidance
-```
-ws://api.plate-app.com/v1/cooking-guidance
-```
-Events:
-- `start_session`: Start cooking session
-- `step_complete`: Mark step as complete
-- `get_tip`: Request cooking tip
-- `voice_command`: Voice command processing
-
-## API Versioning
-- Version included in URL path
-- Current version: v1
-- Deprecation notices provided 6 months in advance
-- Breaking changes only in major versions 

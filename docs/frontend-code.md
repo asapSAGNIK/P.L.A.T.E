@@ -174,4 +174,10 @@ frontend/
 - **Internationalization (i18n)**: Supporting multiple languages.
 - **Progressive Web App (PWA)**: Enhancing offline capabilities and installability.
 - **Advanced Animations**: Implementing more sophisticated UI transitions.
-- **Component Library**: Developing a reusable component library for consistency. 
+- **Component Library**: Developing a reusable component library for consistency.
+
+### Authentication
+- **All authentication is handled via Supabase Auth (Google provider only).**
+- Use Supabase client SDK to implement "Sign in with Google" button.
+- No custom login/register forms or password reset flows.
+- Use Supabase session/user state for authentication and API calls. 
