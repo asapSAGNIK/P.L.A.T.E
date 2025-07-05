@@ -17,21 +17,19 @@ This roadmap is designed to be iterative, allowing us to build a solid foundatio
 
 2.  **Database Setup (Supabase/PostgreSQL):** ✅
     *   Create a Supabase project. ✅
-    *   Implement the `users`, `user_settings`, `ingredients`, and `recipes` tables based on `schema-design.md`. ✅
-    *   Set up initial Row-Level Security (RLS) policies in Supabase for `users`. ✅
+    *   Implement the `user_settings`, `ingredients`, and `recipes` tables based on `schema-design.md`. ✅
+    *   Set up initial Row-Level Security (RLS) policies in Supabase for user data. ✅
 
 3.  **Backend Core (Node.js/Express):** ✅
     *   Set up Express server with basic routing. ✅
-    *   Implement user authentication endpoints (`/auth/register`, `/auth/login`) as per `api-docs.md`. ✅
-    *   Integrate `bcrypt` for password hashing and JWT for token generation. ✅
+    *   **Integrate Supabase Auth (Google provider only) for authentication.** ✅
     *   Connect to Supabase using a suitable ORM (e.g., Prisma, if decided) or direct client. ✅
-    *   **Implement Google OAuth authentication (Passport.js) with Supabase integration.** ✅
     *   **Resolve all linter/type errors and ensure robust environment variable management and error handling.** ✅
 
 4.  **Frontend Core (Next.js):** ✅
-    *   Develop the Landing Page (`/` route) with Sign In/Register UI. ✅
-    *   Implement authentication flows (registration, login) using Axios to connect to backend APIs. ✅
-    *   Set up Redux Toolkit for user authentication state management. ⏳ (Basic state handled, full Redux integration can be added later)
+    *   Develop the Landing Page (`/` route) with **Sign in with Google (Supabase Auth) UI**. ✅
+    *   Implement authentication flow using Supabase client SDK. ✅
+    *   Set up Redux Toolkit for user authentication state management (using Supabase session). ⏳ (Basic state handled, full Redux integration can be added later)
     *   Create a basic Dashboard page (`/dashboard`) that authenticated users can access. ✅
 
 5.  **Initial External API Integration (Spoonacular):** ✅
@@ -42,7 +40,7 @@ This roadmap is designed to be iterative, allowing us to build a solid foundatio
     *   Develop a page (e.g., `/recipes/browse`) to display recipes fetched from Spoonacular. ✅ (Displayed in dashboard)
     *   Create `RecipeCard` components to show basic recipe information. ✅ (Basic card in dashboard)
 
-**Expected Outcome (End of Phase 1):** ✅ A functional web application where users can register (with email/password or Google), log in, and browse/search for basic recipes using Spoonacular data.
+**Expected Outcome (End of Phase 1):** ✅ A functional web application where users can sign in with Google (Supabase Auth) and browse/search for basic recipes using Spoonacular data.
 
 ---
 

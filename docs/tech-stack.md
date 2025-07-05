@@ -98,14 +98,9 @@
   - Schema validation
 
 ### Authentication
-- **JWT**
-  - Token-based authentication
-  - Stateless sessions
-  - Secure token handling
-- **bcrypt**
-  - Password hashing
-  - Salt generation
-  - Secure storage
+- **Supabase Auth (Google provider only)**
+  - Handles all user authentication and session management
+  - Secure, production-grade auth out of the box
 
 ## AI/ML Integration
 

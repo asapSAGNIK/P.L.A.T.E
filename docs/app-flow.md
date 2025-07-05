@@ -5,26 +5,16 @@
 
 ### 1. Landing Page
 - Welcome screen with app introduction
-- Sign in/Register options
+- **Sign in with Google (Supabase Auth) only**
 - Quick feature overview
 - Optional demo mode
 
 ### 2. Authentication Flow
-#### Registration
-1. User clicks "Register"
-2. Fill registration form:
-   - Email
-   - Password
-   - Basic profile info
-   - Optional: Dietary preferences
-3. Email verification
-4. Welcome onboarding
-
-#### Login
-1. User clicks "Sign In"
-2. Enter credentials
-3. Optional: Remember me
-4. Redirect to dashboard
+#### Google Sign-In (Supabase)
+1. User clicks "Sign in with Google"
+2. Authenticates via Google (Supabase Auth UI)
+3. On success, user is redirected to dashboard
+4. Session is managed by Supabase; JWT is issued by Supabase and sent with API requests
 
 ### 3. Main Application Flow
 
@@ -111,7 +101,7 @@
 
 ### 6. Error Handling Flows
 1. Authentication Errors:
-   - Invalid credentials
+   - Google sign-in failure
    - Session timeout
    - Account locked
 2. Recipe Generation Errors:
@@ -129,7 +119,7 @@
 ### 7. Settings and Preferences
 1. User Profile:
    - Update information
-   - Change password
+   - **(Password change not applicable; managed by Google)**
    - Manage preferences
 2. Application Settings:
    - Voice settings
@@ -155,11 +145,11 @@
 5. Settings → Application State
 
 ## Security Considerations
-1. Authentication Flow (JWT required for all authenticated flows; Google OAuth and email/password both supported)
+1. Authentication Flow (**Supabase Google Auth required for all authenticated flows; no email/password**)
 2. Data Encryption
 3. API Security (CORS enforced, allowed origins set in backend)
 4. User Data Protection (Supabase with RLS)
-5. Session Management (JWT stored securely)
+5. Session Management (Supabase JWT stored securely)
 6. Rate Limiting (100/min for authenticated, 20/min for unauthenticated)
 7. Type Safety and Data Shape Consistency (frontend and backend types in sync)
 8. Error Handling (consistent error response structure)

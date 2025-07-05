@@ -47,4 +47,7 @@ supabase/.snapshots
 *.swp
 *.swo
 *.bak
-docs/notes.md 
+docs/notes.md
+
+# Cursor IDE
+.cursor/ 

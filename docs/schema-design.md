@@ -2,45 +2,23 @@
 # Plate - Your Personal AI Chef
 
 ## Database Overview
-The application will use **Supabase (PostgreSQL)** as the primary database, with Redis for caching and session management. Prisma ORM will be used for type-safe database access.
+The application uses **Supabase (PostgreSQL)** as the primary database. **User authentication is managed by Supabase Auth (Google provider only).**
 
 ## Table Schemas
 
 ### 1. Users
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  name TEXT,
-  cooking_skill_level TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  last_login TIMESTAMPTZ,
-  is_verified BOOLEAN DEFAULT FALSE
-);
-
--- User preferences (dietary, allergies, cuisines) could be stored as JSONB or in separate lookup tables
--- For simplicity, let's keep them as JSONB for now or define them as separate tables if they are highly structured.
--- For dietary_preferences, allergies, preferred_cuisines, let's consider them as separate tables if they are predefined options.
--- For initial setup, we can keep them in a JSONB column or simple array types if supported by ORM and application logic.
--- Assuming simple array for direct storage, or separate tables for predefined options. Let's make them array of text for now.
-
-ALTER TABLE users
-ADD COLUMN dietary_preferences TEXT[],
-ADD COLUMN allergies TEXT[],
-ADD COLUMN preferred_cuisines TEXT[];
+- **User authentication and identity are managed by Supabase (`auth.users` table).**
+- All user-related tables reference the Supabase user ID (`auth.users.id`).
 
 CREATE TABLE user_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   voice_enabled BOOLEAN DEFAULT FALSE,
   notifications BOOLEAN DEFAULT TRUE,
   theme TEXT DEFAULT 'light',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-```
 
 ### 2. Recipes
 ```sql
@@ -115,7 +93,7 @@ CREATE TABLE recipe_ingredients (
 ```sql
 CREATE TABLE user_saved_recipes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   recipe_id UUID REFERENCES recipes(id) ON DELETE CASCADE,
   status TEXT DEFAULT 'saved', -- e.g., 'saved', 'cooked'
   notes TEXT,
@@ -140,7 +118,7 @@ CREATE TYPE session_status_enum AS ENUM ('in-progress', 'completed', 'aborted');
 
 CREATE TABLE cooking_sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   recipe_id UUID REFERENCES recipes(id) ON DELETE CASCADE,
   status session_status_enum DEFAULT 'in-progress',
   start_time TIMESTAMPTZ DEFAULT NOW(),
@@ -165,7 +143,7 @@ CREATE TABLE cooking_session_progress (
 ```sql
 CREATE TABLE user_ingredients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   ingredient_id UUID REFERENCES ingredients(id) ON DELETE CASCADE,
   quantity DECIMAL(10, 2) NOT NULL,
   unit TEXT NOT NULL,
@@ -180,10 +158,10 @@ CREATE TABLE user_ingredients (
 ## Relationships (Revised)
 
 ### One-to-Many
-- `users` → `user_settings`
-- `users` → `user_saved_recipes`
-- `users` → `cooking_sessions`
-- `users` → `user_ingredients`
+- `auth.users` → `user_settings`
+- `auth.users` → `user_saved_recipes`
+- `auth.users` → `cooking_sessions`
+- `auth.users` → `user_ingredients`
 - `recipes` → `recipe_instructions`
 - `recipes` → `recipe_tags`
 - `recipes` → `recipe_ingredients`
@@ -200,8 +178,7 @@ CREATE TABLE user_ingredients (
 ## Indexes (Revised)
 
 ### Users Table
-- `CREATE INDEX idx_users_email ON users (email);`
-- `CREATE INDEX idx_users_created_at ON users (created_at);`
+- **User authentication and identity are managed by Supabase (`auth.users` table).**
 
 ### Recipes Table
 - `CREATE INDEX idx_recipes_title ON recipes (title);`
@@ -233,8 +210,6 @@ CREATE TABLE user_ingredients (
 ## Data Validation Rules (Revised)
 
 ### Users
-- `email` must be unique and valid (enforced by `UNIQUE` constraint).
-- `password_hash` must be present.
 - `created_at`, `updated_at` are automatically managed timestamps.
 
 ### Recipes
@@ -258,44 +233,4 @@ CREATE TABLE user_ingredients (
 
 ### Cooking Sessions
 - `user_id` and `recipe_id` must reference existing entries.
-- `status` must be one of the defined `session_status_enum` values.
-- `start_time` is automatically managed.
-
-### User Ingredients
-- `user_id` and `ingredient_id` must reference existing entries.
-- `quantity` must be positive.
-- `unit` must be present.
-- A user can only have a specific ingredient in a specific location once (`UNIQUE (user_id, ingredient_id, location)`).
-
-## Caching Strategy
-
-### Redis Caches
-1. User Sessions
-   - Key: `session:{userId}`
-   - TTL: 24 hours
-
-2. Recipe Cache
-   - Key: `recipe:{recipeId}`
-   - TTL: 1 hour
-
-3. User Preferences
-   - Key: `prefs:{userId}`
-   - TTL: 12 hours
-
-4. Popular Recipes
-   - Key: `popular:recipes`
-   - TTL: 6 hours
-
-## Data Migration Strategy
-1. Version control for schema changes (e.g., using Prisma Migrate).
-2. Migration scripts for updates.
-3. Backup strategy.
-4. Rollback procedures.
-
-## Security Considerations
-1. Password hashing (using `bcrypt` or similar on the backend).
-2. Data encryption (at rest and in transit, handled by Supabase).
-3. Row-Level Security (RLS) in PostgreSQL via Supabase.
-4. Access control (handled by Supabase policies and backend authorization).
-5. Audit logging.
-6. Data sanitization. 
+- `status`
