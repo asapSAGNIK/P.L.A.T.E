@@ -9,40 +9,59 @@ const router = Router();
 
 // Zod schema for request validation
 const findByIngredientsSchema = z.object({
-  ingredients: z.array(z.string().min(1)),
+  ingredients: z.array(z.string().min(1)).optional(), // Made optional
+  query: z.string().min(1).optional(), // Added for explore mode
   filters: z.object({
     cuisine: z.string().optional(),
     diet: z.string().optional(),
     maxTime: z.number().optional(),
     difficulty: z.string().optional(),
+    servings: z.number().min(1).optional(),
+    mealType: z.string().optional(), // Added mealType
   }).optional(),
 });
 
 // POST /recipes/find-by-ingredients
 router.post('/find-by-ingredients', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { ingredients, filters } = findByIngredientsSchema.parse(req.body);
+    const { ingredients, query, filters } = findByIngredientsSchema.parse(req.body);
+
+    // Ensure at least one of ingredients or query is provided
+    if (!ingredients && !query) {
+      return res.status(400).json({ error: 'Either ingredients or a query must be provided.' });
+    }
+
     if (!env.SPOONACULAR_API_KEY) {
       return res.status(500).json({ error: 'Spoonacular API key not configured' });
     }
-    // Build Spoonacular API query
+
     const params: any = {
-      ingredients: ingredients.join(','),
       number: 10,
-      ranking: 1,
-      ignorePantry: true,
+      addRecipeInformation: true,
       apiKey: env.SPOONACULAR_API_KEY,
     };
-    if (filters?.cuisine) params.cuisine = filters.cuisine;
-    if (filters?.diet) params.diet = filters.diet;
-    if (filters?.maxTime) params.maxReadyTime = filters.maxTime;
-    // Note: Spoonacular does not support difficulty directly
 
-    // Call Spoonacular API
-    const spoonacularUrl = 'https://api.spoonacular.com/recipes/findByIngredients';
+    if (ingredients && ingredients.length > 0) {
+      params.includeIngredients = ingredients.join(',');
+      params.sort = 'max-used-ingredients';
+      params.ignorePantry = true;
+    } else if (query) {
+      params.query = query;
+    }
+
+    if (filters?.cuisine) params.cuisine = filters.cuisine;
+    if (filters?.diet) params.diet = filters.diet; // This will be handled on frontend to be undefined if no specific diet selected
+    if (filters?.maxTime) params.maxReadyTime = filters.maxTime;
+    if (filters?.servings) {
+      params.minServings = filters.servings;
+      params.maxServings = filters.servings;
+    }
+    if (filters?.mealType) params.type = filters.mealType; // Map mealType to Spoonacular's type
+
+    const spoonacularUrl = 'https://api.spoonacular.com/recipes/complexSearch';
     const response = await axios.get(spoonacularUrl, { params });
-    // Optionally, fetch more details for each recipe (not done here for speed)
-    res.json({ recipes: response.data });
+
+    res.json({ recipes: response.data.results });
   } catch (err: any) {
     logger.error('Error in POST /recipes/find-by-ingredients:', err);
     if (err instanceof z.ZodError) {
