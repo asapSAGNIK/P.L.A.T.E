@@ -67,23 +67,18 @@ This roadmap is designed to be iterative, allowing us to build a solid foundatio
     *   Error handling and testing. ✅
     *   Systematic update of all API calls and flows. ✅
 
-3.  **Gordon Ramsay Voice Interaction:**
-    *   Integrate Amazon Polly for text-to-speech conversion. ⏳
-    *   Implement `POST /voice/instructions` API endpoint as per `api-docs.md`. ⏳
-    *   Develop frontend UI to toggle voice guidance during cooking. ⏳
-
-4.  **Recipe Management ("Chef's History"):**
+3.  **Recipe Management ("Chef's History"):**
     *   Implement `user_saved_recipes` and `user_recipe_customizations` tables in Supabase. ⏳
     *   Develop backend APIs for saving, retrieving, and managing user's recipes (`POST /recipes/{recipeId}/save`, `GET /users/profile` to include saved recipes). ⏳
     *   Create the "Chef's History" page (`/history`) in the frontend, allowing users to view and manage their saved recipes. ⏳
 
-5.  **Cooking Mode:**
+4.  **Cooking Mode:**
     *   Implement `cooking_sessions` and `cooking_session_progress` tables in Supabase. ⏳
     *   Develop backend APIs for starting, updating, and completing cooking sessions (`POST /cooking-sessions`, `PUT /cooking-sessions/{sessionId}/progress`, `PUT /cooking-sessions/{sessionId}/complete`). ⏳
     *   Implement the real-time WebSocket (`ws://api.plate-app.com/v1/cooking-guidance`) for step-by-step guidance, timers, and real-time AI tips during cooking. ⏳
     *   Develop the interactive Cooking Mode UI in the frontend, displaying steps, managing timers, and integrating voice guidance. ⏳
 
-6.  **User Preferences & Settings:**
+5.  **User Preferences & Settings:**
     *   Implement backend API to update user settings (`PUT /users/profile`). ⏳
     *   Develop frontend UI for user profile and settings, including voice settings, dietary preferences, and theme. ⏳
 

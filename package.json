@@ -32,6 +32,7 @@
     "@types/passport-google-oauth20": "^2.0.16"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.50.3"
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.50.4"
   }
 }
