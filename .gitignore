@@ -47,6 +47,9 @@ supabase/.snapshots
 *.swp
 *.swo
 *.bak
+
+# Documentation and notes (private)
+docs/
 docs/notes.md
 
 # Cursor IDE
