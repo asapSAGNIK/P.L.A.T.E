@@ -29,6 +29,7 @@ export interface RecipeGenerationRequest {
   ingredients?: string[];
   query?: string;
   filters?: RecipeFilters;
+  mode?: 'fridge' | 'explore'; // Added mode parameter
 }
 
 /**
@@ -38,41 +39,59 @@ function generateRecipePrompt(
   ingredients: string[] | undefined, 
   query: string | undefined, 
   filters: RecipeFilters | undefined, 
-  recipeNumber: number
+  recipeNumber: number,
+  mode: 'fridge' | 'explore' = 'fridge' // Added mode parameter
 ): string {
-  const basePrompt = `You are a helpful cooking assistant for beginners. Generate a SIMPLE recipe that anyone can make with basic ingredients.
+  const isFridgeMode = mode === 'fridge';
+  
+  const basePrompt = isFridgeMode 
+    ? `You are a helpful cooking assistant for beginners. Generate a SIMPLE recipe that anyone can make with basic ingredients.`
+    : `You are a creative and experienced chef. Generate a sophisticated and delicious recipe that showcases culinary expertise and creativity.`;
 
-RESPONSE FORMAT (exactly like this):
-Title: [Simple Recipe Name]
-Description: [Brief description - keep it simple]
+  const formatPrompt = `RESPONSE FORMAT (exactly like this):
+Title: [${isFridgeMode ? 'Simple' : 'Creative'} Recipe Name]
+Description: [Brief description - ${isFridgeMode ? 'keep it simple' : 'make it enticing'}]
 Cooking Time: [X] minutes
-Difficulty: Easy
+Difficulty: ${isFridgeMode ? 'Easy' : 'Medium'}
 Servings: [X]
 Ingredients:
 - [ingredient with amount]
 - [ingredient with amount]
 - [ingredient with amount]
 Instructions:
-1. [First step - very simple]
-2. [Second step - very simple]
-3. [Third step - very simple]
+1. [First step - ${isFridgeMode ? 'very simple' : 'detailed and clear'}]
+2. [Second step - ${isFridgeMode ? 'very simple' : 'detailed and clear'}]
+3. [Third step - ${isFridgeMode ? 'very simple' : 'detailed and clear'}]`;
 
-IMPORTANT RULES FOR FRIDGE MODE:
+  const modeRules = isFridgeMode 
+    ? `IMPORTANT RULES FOR FRIDGE MODE:
 - ONLY use these additional ingredients: butter, salt, pepper, oil, garlic powder, onion powder, ketchup, mayo, cheese, flour, eggs, milk
 - NO complex ingredients like: sriracha, specialty sauces, exotic spices, hard-to-find items
 - Keep instructions simple (max 4-5 steps)
 - Use basic cooking methods: frying, boiling, simple mixing
 - Make it beginner-friendly
 - Respect the exact cooking time limit
-- Respect the exact serving size
-
-REQUIREMENTS:`;
+- Respect the exact serving size`
+    : `IMPORTANT RULES FOR EXPLORE MODE:
+- Be creative and adventurous with ingredients and techniques
+- Use a variety of spices, herbs, and flavor profiles
+- Include interesting cooking methods and techniques
+- Make recipes that are restaurant-quality and impressive
+- Feel free to use specialty ingredients and complex flavors
+- Instructions can be more detailed (5-8 steps)
+- Focus on taste, presentation, and culinary excellence
+- Respect the exact cooking time limit
+- Respect the exact serving size`;
 
   let requirements = '';
   
   if (ingredients && ingredients.length > 0) {
     requirements += `\n- Must use these ingredients: ${ingredients.join(', ')}`;
-    requirements += `\n- This is FRIDGE MODE - keep it simple and beginner-friendly`;
+    if (isFridgeMode) {
+      requirements += `\n- This is FRIDGE MODE - keep it simple and beginner-friendly`;
+    } else {
+      requirements += `\n- This is EXPLORE MODE - be creative and sophisticated`;
+    }
   }
   
   if (query) {
@@ -97,9 +116,11 @@ REQUIREMENTS:`;
     }
   }
 
-  requirements += `\n\nMake this recipe ${recipeNumber} of 5. Keep it SIMPLE and BEGINNER-FRIENDLY. No complex techniques or ingredients.`;
+  const modeSpecificInstruction = isFridgeMode 
+    ? `\n\nMake this recipe ${recipeNumber} of 5. Keep it SIMPLE and BEGINNER-FRIENDLY. No complex techniques or ingredients.`
+    : `\n\nMake this recipe ${recipeNumber} of 5. Be CREATIVE and SOPHISTICATED. Showcase culinary expertise and make it restaurant-quality.`;
 
-  return basePrompt + requirements;
+  return basePrompt + '\n\n' + formatPrompt + '\n\n' + modeRules + '\n\nREQUIREMENTS:' + requirements + modeSpecificInstruction;
 }
 
 /**
@@ -162,18 +183,19 @@ function parseAIRecipe(
       // Remove any leading numbers and dots (like "1. ", "2. ", etc.)
       .map(line => line.replace(/^\d+\.\s*/, ''));
 
-    // Limit instructions to max 5 steps for simplicity
-    if (instructionsList.length > 5) {
-      instructionsList = instructionsList.slice(0, 5);
+    // Limit instructions based on mode (fridge mode: max 5, explore mode: max 8)
+    const maxInstructions = (ingredients && ingredients.length > 0) ? 5 : 8; // If ingredients provided, it's likely fridge mode
+    if (instructionsList.length > maxInstructions) {
+      instructionsList = instructionsList.slice(0, maxInstructions);
     }
 
     return {
       id: `ai-${Date.now()}-${recipeNumber}`,
       title: titleMatch[1].trim(),
-      image: `/placeholder.svg?height=200&width=300&text=${encodeURIComponent(titleMatch[1].trim())}`,
-      cookingTime: cookingTimeMatch ? parseInt(cookingTimeMatch[1]) : 30,
-      difficulty: difficultyMatch ? difficultyMatch[1] : 'Medium',
-      ingredients: ingredientsList,
+              image: `/placeholder.svg?height=200&width=300&text=${encodeURIComponent(titleMatch[1].trim())}`,
+        cookingTime: cookingTimeMatch ? parseInt(cookingTimeMatch[1]) : 30,
+        difficulty: difficultyMatch ? difficultyMatch[1] : (ingredients && ingredients.length > 0 ? 'Easy' : 'Medium'),
+        ingredients: ingredientsList,
       description: descriptionMatch ? descriptionMatch[1].trim() : 'A delicious AI-generated recipe',
       rating: 4, // Default rating for AI recipes
       servings: servingsMatch ? parseInt(servingsMatch[1]) : (filters?.servings || 2),
@@ -193,12 +215,13 @@ async function generateSingleRecipe(
   ingredients: string[] | undefined,
   query: string | undefined,
   filters: RecipeFilters | undefined,
-  recipeNumber: number
+  recipeNumber: number,
+  mode: 'fridge' | 'explore' = 'fridge' // Default to fridge mode
 ): Promise<AIRecipe | null> {
   try {
-    const recipePrompt = generateRecipePrompt(ingredients, query, filters, recipeNumber);
+    const recipePrompt = generateRecipePrompt(ingredients, query, filters, recipeNumber, mode);
     
-    logger.info('Generating AI recipe', { recipeNumber, ingredients, filters });
+    logger.info('Generating AI recipe', { recipeNumber, ingredients, filters, mode });
     
     const response = await axios.post(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent',
@@ -222,7 +245,8 @@ async function generateSingleRecipe(
       logger.info('Successfully generated AI recipe', { 
         recipeNumber, 
         title: parsedRecipe.title,
-        ingredientsCount: parsedRecipe.ingredients.length 
+        ingredientsCount: parsedRecipe.ingredients.length,
+        mode
       });
     }
 
@@ -237,7 +261,7 @@ async function generateSingleRecipe(
  * Generate multiple AI recipes
  */
 export async function generateAIRecipes(request: RecipeGenerationRequest): Promise<AIRecipe[]> {
-  const { ingredients, query, filters } = request;
+  const { ingredients, query, filters, mode = 'fridge' } = request;
   
   if (!ingredients && !query) {
     throw new Error('Either ingredients or a query must be provided.');
@@ -247,7 +271,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
     throw new Error('Gemini API key not configured');
   }
 
-  logger.info('Starting AI recipe generation', { ingredients, query, filters });
+  logger.info('Starting AI recipe generation', { ingredients, query, filters, mode });
 
   const numberOfRecipes = 2;
   const aiRecipes: AIRecipe[] = [];
@@ -255,7 +279,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
   // Generate recipes sequentially to avoid rate limiting
   for (let i = 0; i < numberOfRecipes; i++) {
     try {
-      const recipe = await generateSingleRecipe(ingredients, query, filters, i + 1);
+      const recipe = await generateSingleRecipe(ingredients, query, filters, i + 1, mode);
       if (recipe) {
         aiRecipes.push(recipe);
       }
@@ -272,7 +296,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
         logger.warn('Rate limit hit, trying one more time with longer delay');
         await new Promise(resolve => setTimeout(resolve, 10000));
         try {
-          const fallbackRecipe = await generateSingleRecipe(ingredients, query, filters, 1);
+          const fallbackRecipe = await generateSingleRecipe(ingredients, query, filters, 1, mode);
           if (fallbackRecipe) {
             aiRecipes.push(fallbackRecipe);
           }
@@ -286,7 +310,8 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
 
   logger.info('AI recipe generation completed', { 
     requested: numberOfRecipes, 
-    generated: aiRecipes.length 
+    generated: aiRecipes.length,
+    mode
   });
 
   if (aiRecipes.length === 0) {
