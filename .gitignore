@@ -15,7 +15,6 @@ yarn-debug.log
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
 
 # OS-specific
 .DS_Store
@@ -51,6 +50,29 @@ supabase/.snapshots
 # Documentation and notes (private)
 docs/
 docs/notes.md
+
+# Testing and development files (private)
+RECIPE-GENERATION-FIX.md
+remove-docs-from-git.md
+backend/setup-rate-limit.md
+test-*.js
+test-*.md
+debug-*.js
+*-test.js
+*-testing.js
+*-flow.js
+*-service.js
+*-endpoint.js
+*-api.js
+*-models.js
+*-details.js
+*-simple.js
+*-summary.md
+*-implementation.md
+*-fix.md
+*-guide.md
+*-setup.md
+*-remove.md
 
 # Cursor IDE
 .cursor/ 
