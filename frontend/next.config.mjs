@@ -1,21 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Only ignore build errors in production
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: process.env.NODE_ENV === 'production',
   },
   images: {
     unoptimized: true,
   },
-  // Disable static generation to avoid SSR issues
+  // Development optimizations
   experimental: {
     workerThreads: false,
     cpus: 1,
   },
-  // Force all pages to be dynamic
-  staticPageGenerationTimeout: 0,
+  // Better development experience
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
 }
 
 export default nextConfig

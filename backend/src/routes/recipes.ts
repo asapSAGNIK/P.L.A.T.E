@@ -49,21 +49,26 @@ router.post('/find-by-ingredients',
       // Generate AI recipes using the service
       const aiRecipes = await generateAIRecipes({ ingredients, query, filters, mode });
 
+      // Get current rate limit status after increment
+      const { getUserRateLimitStatus } = await import('../services/rateLimitService');
+      const currentRateLimit = await getUserRateLimitStatus(req.user!.userId);
+
       logger.info('AI recipe generation completed', { 
         generated: aiRecipes.length,
         recipes: aiRecipes.map((r: any) => r.title),
         mode,
         userId: req.user?.userId,
-        rateLimitRemaining: req.rateLimit?.remaining 
+        oldRateLimitRemaining: req.rateLimit?.remaining,
+        newRateLimitRemaining: currentRateLimit.remaining
       });
-
+      
       // Include rate limit info in response
       const response = {
         recipes: aiRecipes,
         rateLimit: {
-          remaining: req.rateLimit?.remaining || 0,
-          resetTime: req.rateLimit?.resetTime?.toISOString(),
-          limit: req.rateLimit?.config?.maxRequestsPerDay || 20
+          remaining: currentRateLimit.remaining,
+          resetTime: currentRateLimit.resetTime.toISOString(),
+          limit: currentRateLimit.maxRequests
         }
       };
 

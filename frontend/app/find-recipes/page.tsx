@@ -1,7 +1,5 @@
 "use client"
 
-export const dynamic = 'force-dynamic'
-
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -20,7 +18,8 @@ import { ChefHat, Clock, Users, Sparkles, Refrigerator, Compass } from "lucide-r
 import { useToast } from "@/hooks/use-toast"
 import { RecipeCard } from "@/components/recipe-card"
 import { Input } from "@/components/ui/input"
-import { ensureAuthenticated, getAuthTokenForAPI } from "@/lib/simplified-auth"
+import { useAuth } from "@/components/auth-provider"
+import { supabase } from "@/lib/supabaseClient"
 
 function FindRecipesContent() {
   const searchParams = useSearchParams()
@@ -30,7 +29,6 @@ function FindRecipesContent() {
   const [dietMode, setDietMode] = useState(false)
   const [mealType, setMealType] = useState("")
   const [servings, setServings] = useState([2])
-  const [isSearching, setIsSearching] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const [mode, setMode] = useState<"fridge" | "explore">("fridge")
@@ -38,6 +36,7 @@ function FindRecipesContent() {
   const [recipes, setRecipes] = useState([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const { user } = useAuth()
 
   // Define mood to filter mappings
   const moodMappings: { [key: string]: { cuisine?: string; mealType?: string; maxTime?: number; query?: string; diet?: string; includeIngredients?: string; } } = {
@@ -88,13 +87,31 @@ function FindRecipesContent() {
     setRecipes([]);
 
     try {
-      const token = await getAuthTokenForAPI();
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to search recipes.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get the access token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          title: "Access Token Required",
+          description: "Please try logging in again.",
+          variant: "destructive",
+        });
+        return;
+      }
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recipes/find-by-ingredients`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           ingredients: mode === "fridge" && ingredients.length > 0 ? ingredients : undefined,
@@ -396,7 +413,7 @@ function FindRecipesContent() {
             <div className="text-center pt-4">
               <Button
                 onClick={handleSearch}
-                disabled={isSearching}
+                disabled={isLoading}
                 size="lg"
                 className={`px-8 py-3 text-lg font-semibold shadow-lg ${
                   mode === "fridge"
@@ -404,7 +421,7 @@ function FindRecipesContent() {
                     : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                 } text-white`}
               >
-                {isSearching ? (
+                {isLoading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
                     {mode === "fridge" ? "Cooking up ideas..." : "Finding inspiration..."}
@@ -473,7 +490,7 @@ function FindRecipesContent() {
 
         {/* Recipe Results Section */}
         <div id="recipe-results">
-          {isSearching ? (
+          {isLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4" />
               <p className="text-lg text-gray-600">
