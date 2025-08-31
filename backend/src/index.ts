@@ -7,6 +7,7 @@ import logger from './config/logger';
 import authRoutes from './routes/auth';
 import ingredientRoutes from './routes/ingredients';
 import recipeRoutes from './routes/recipes';
+import rateLimitRoutes from './routes/rateLimit';
 import { RequestHandler } from 'express';
 
 const app = express();
@@ -17,33 +18,24 @@ if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !env.FRONTEND_URL) {
   throw new Error('Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FRONTEND_URL');
 }
 
-// Middleware
-const allowedOrigins = [env.FRONTEND_URL, 'http://localhost:3000'];
+// CORS middleware
 app.use(cors({
-  origin: (origin, callback) => {
-    if (env.NODE_ENV !== 'production') {
-      // Allow all origins in development
-      callback(null, true);
-    } else if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
+  origin: env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  credentials: true
 }));
+
 app.use(express.json());
 
 // Supabase Initialization
-const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-  auth: {
-    persistSession: false,
-  },
-});
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Middleware to make Supabase client available to request handlers
+// Request logging middleware
 app.use((req, res, next) => {
-  (req as any).supabase = supabase;
+  logger.info(`${req.method} ${req.path}`, {
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString()
+  });
   next();
 });
 
@@ -51,6 +43,7 @@ app.use((req, res, next) => {
 app.use('/auth', authRoutes);
 app.use('/ingredients', ingredientRoutes);
 app.use('/recipes', recipeRoutes);
+app.use('/rate-limit', rateLimitRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -63,8 +56,8 @@ app.get('/health', (req, res) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error('Unhandled error:', { error: err.message, stack: err.stack });
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  logger.error('Error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 

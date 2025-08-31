@@ -1,9 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateSupabaseToken } from '../middleware/supabase-auth';
+import { enforceRateLimit } from '../middleware/rateLimit';
 import { z } from 'zod';
 import logger from '../config/logger';
 import axios from 'axios';
 import { env } from '../config/env';
+import { generateAIRecipes, RecipeGenerationRequest } from '../services/aiRecipeService';
 
 const router = Router();
 
@@ -21,58 +23,60 @@ const findByIngredientsSchema = z.object({
   }).optional(),
 });
 
-// POST /recipes/find-by-ingredients
-router.post('/find-by-ingredients', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { ingredients, query, filters } = findByIngredientsSchema.parse(req.body);
+// POST /recipes/find-by-ingredients - AI GENERATED RECIPES with Rate Limiting
+router.post('/find-by-ingredients', 
+  authenticateSupabaseToken, 
+  ...enforceRateLimit({ maxRequestsPerDay: 20 }), // 20 requests per day
+  async (req: Request, res: Response) => {
+    try {
+      const { ingredients, query, filters } = findByIngredientsSchema.parse(req.body);
 
-    // Ensure at least one of ingredients or query is provided
-    if (!ingredients && !query) {
-      return res.status(400).json({ error: 'Either ingredients or a query must be provided.' });
+      // Ensure at least one of ingredients or query is provided
+      if (!ingredients && !query) {
+        return res.status(400).json({ error: 'Either ingredients or a query must be provided.' });
+      }
+
+      logger.info('Starting AI recipe generation', { 
+        ingredients, 
+        query, 
+        filters,
+        userId: req.user?.userId,
+        rateLimitRemaining: req.rateLimit?.remaining 
+      });
+
+      // Generate AI recipes using the service
+      const aiRecipes = await generateAIRecipes({ ingredients, query, filters });
+
+      logger.info('AI recipe generation completed', { 
+        generated: aiRecipes.length,
+        recipes: aiRecipes.map((r: any) => r.title),
+        userId: req.user?.userId,
+        rateLimitRemaining: req.rateLimit?.remaining 
+      });
+
+      // Include rate limit info in response
+      const response = {
+        recipes: aiRecipes,
+        rateLimit: {
+          remaining: req.rateLimit?.remaining || 0,
+          resetTime: req.rateLimit?.resetTime?.toISOString(),
+          limit: req.rateLimit?.config?.maxRequestsPerDay || 20
+        }
+      };
+
+      res.json(response);
+    } catch (err: any) {
+      logger.error('Error in POST /recipes/find-by-ingredients:', err);
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation error', details: err.errors });
+      }
+      if (err.message) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.status(500).json({ error: 'Internal server error' });
     }
-
-    if (!env.SPOONACULAR_API_KEY) {
-      return res.status(500).json({ error: 'Spoonacular API key not configured' });
-    }
-
-    const params: any = {
-      number: 10,
-      addRecipeInformation: true,
-      apiKey: env.SPOONACULAR_API_KEY,
-    };
-
-    if (ingredients && ingredients.length > 0) {
-      params.includeIngredients = ingredients.join(',');
-      params.sort = 'max-used-ingredients';
-      params.ignorePantry = true;
-    } else if (query) {
-      params.query = query;
-    }
-
-    if (filters?.cuisine) params.cuisine = filters.cuisine;
-    if (filters?.diet) params.diet = filters.diet; // This will be handled on frontend to be undefined if no specific diet selected
-    if (filters?.maxTime) params.maxReadyTime = filters.maxTime;
-    if (filters?.servings) {
-      params.minServings = filters.servings;
-      params.maxServings = filters.servings;
-    }
-    if (filters?.mealType) params.type = filters.mealType; // Map mealType to Spoonacular's type
-
-    const spoonacularUrl = 'https://api.spoonacular.com/recipes/complexSearch';
-    const response = await axios.get(spoonacularUrl, { params });
-
-    res.json({ recipes: response.data.results });
-  } catch (err: any) {
-    logger.error('Error in POST /recipes/find-by-ingredients:', err);
-    if (err instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: err.errors });
-    }
-    if (err.response) {
-      return res.status(err.response.status).json({ error: err.response.data || 'Spoonacular API error' });
-    }
-    res.status(500).json({ error: 'Internal server error' });
   }
-});
+);
 
 // --- Gemini AI Endpoints ---
 
@@ -82,7 +86,7 @@ const geminiCommentarySchema = z.object({
   instructions: z.string().min(1),
 });
 
-router.post('/ai/commentary', authenticateToken, async (req: Request, res: Response) => {
+router.post('/ai/commentary', authenticateSupabaseToken, async (req: Request, res: Response) => {
   try {
     if (!env.GEMINI_API_KEY) {
       return res.status(500).json({ error: 'Gemini API key not configured' });
@@ -118,7 +122,7 @@ const geminiTwistSchema = z.object({
   instructions: z.string().min(1),
 });
 
-router.post('/ai/twist', authenticateToken, async (req: Request, res: Response) => {
+router.post('/ai/twist', authenticateSupabaseToken, async (req: Request, res: Response) => {
   try {
     if (!env.GEMINI_API_KEY) {
       return res.status(500).json({ error: 'Gemini API key not configured' });
@@ -148,4 +152,68 @@ router.post('/ai/twist', authenticateToken, async (req: Request, res: Response) 
   }
 });
 
-export default router; 
+// Debug endpoint to test AI recipe generation without full auth (for testing only)
+router.post('/debug/find-recipes', async (req: Request, res: Response) => {
+  try {
+    console.log('DEBUG: AI Recipe request received:', JSON.stringify(req.body, null, 2));
+    
+    const { ingredients, query, filters } = findByIngredientsSchema.parse(req.body);
+
+    if (!ingredients && !query) {
+      return res.status(400).json({ error: 'Either ingredients or a query must be provided.' });
+    }
+
+    if (!env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Gemini API key not configured' });
+    }
+
+    console.log('DEBUG: Generating AI recipes with:', { ingredients, query, filters });
+
+    // Generate AI recipes using the service
+    const aiRecipes = await generateAIRecipes({ ingredients, query, filters });
+
+    console.log('DEBUG: AI recipes generated:', {
+      count: aiRecipes.length,
+      recipes: aiRecipes.map((r: any) => ({ title: r.title, ingredients: r.ingredients.length }))
+    });
+
+    res.json(aiRecipes);
+  } catch (err: any) {
+    console.error('DEBUG: AI Recipe generation error:', err);
+    logger.error('Error in DEBUG /recipes/debug/find-recipes:', err);
+    res.status(500).json({ error: 'Debug AI recipe generation failed', details: err.message });
+  }
+});
+
+// GET /recipes/:id - Get individual AI recipe details (for AI-generated recipes)
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const recipeId = req.params.id;
+    
+    console.log('DEBUG: Fetching AI recipe details for ID:', recipeId);
+
+    // For AI-generated recipes, we don't have external API details
+    // Return a generic response for now
+    const aiRecipe = {
+      id: recipeId,
+      title: 'AI Generated Recipe',
+      image: '/placeholder.svg?height=200&width=300&text=AI+Recipe',
+      cookingTime: 30,
+      difficulty: 'Medium',
+      ingredients: ['Ingredient 1', 'Ingredient 2', 'Ingredient 3'],
+      description: 'This is an AI-generated recipe. The full details are available in the recipe list.',
+      rating: 4,
+      servings: 2,
+      instructions: 'This is an AI-generated recipe. Please refer to the recipe list for full instructions.',
+      isAIGenerated: true
+    };
+
+    res.json(aiRecipe);
+  } catch (err: any) {
+    console.error('DEBUG: AI Recipe details error:', err);
+    logger.error('Error in GET /recipes/:id:', err);
+    res.status(500).json({ error: 'Failed to fetch AI recipe details', details: err.message });
+  }
+});
+
+export default router;
