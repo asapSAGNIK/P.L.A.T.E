@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -33,6 +35,8 @@ export default function DashboardPage() {
   const router = useRouter()
 
   useEffect(() => {
+    if (!supabase) return;
+    
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
         router.push("/login")

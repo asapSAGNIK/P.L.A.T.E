@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 "use client"
 
 import type React from "react"
@@ -71,6 +73,10 @@ export default function RegisterPage() {
   const handleGoogleRegister = async () => {
     setIsLoading(true)
     try {
+      if (!supabase) {
+        toast({ title: 'Google registration failed', description: 'Supabase not available', variant: 'destructive' })
+        return
+      }
       const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
       if (error) {
         toast({ title: 'Google registration failed', description: error.message, variant: 'destructive' })
@@ -84,6 +90,8 @@ export default function RegisterPage() {
   }
 
   useEffect(() => {
+    if (!supabase) return;
+    
     // Check for existing session on mount
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {

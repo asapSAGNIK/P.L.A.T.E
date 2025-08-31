@@ -9,16 +9,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Disable static generation completely
+  // Disable static generation to avoid SSR issues
   experimental: {
     workerThreads: false,
     cpus: 1,
   },
-  // Skip build errors
-  onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
-  },
+  // Force all pages to be dynamic
+  staticPageGenerationTimeout: 0,
 }
 
 export default nextConfig
