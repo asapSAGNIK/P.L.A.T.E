@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 "use client"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -8,6 +10,12 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      router.replace("/login")
+      return
+    }
+    
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         router.replace("/dashboard")

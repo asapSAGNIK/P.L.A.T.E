@@ -39,6 +39,9 @@ export function removeToken() {
 // New simplified functions for Google OAuth
 export async function getSupabaseSession() {
   try {
+    if (!supabase) {
+      return { session: null, error: new Error('Supabase client not available') };
+    }
     const { data: { session }, error } = await supabase.auth.getSession();
     return { session, error };
   } catch (error) {
@@ -92,7 +95,9 @@ export async function ensureAuthenticated(): Promise<boolean> {
 // Sign out function that clears both auth methods
 export async function signOut() {
   try {
-    await supabase.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     removeToken(); // Clear legacy tokens too
   } catch (error) {
     console.error('Sign out error:', error);

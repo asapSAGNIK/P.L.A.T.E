@@ -26,6 +26,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Dynamically import supabase to avoid SSR issues
     import('../lib/supabaseClient').then(({ supabase }) => {
+      // Check if supabase client is available
+      if (!supabase) {
+        console.warn('Supabase client not available');
+        setLoading(false);
+        return;
+      }
+
       // Hydrate session on mount
       supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
