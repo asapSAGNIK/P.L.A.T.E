@@ -1,7 +1,5 @@
 "use client"
 
-export const dynamic = 'force-dynamic'
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -11,8 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ChefHat, Search, Bookmark, History, TrendingUp, Clock, Heart, Sparkles, ArrowRight, Settings, LogOut, User as UserIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { supabase } from '../../lib/supabaseClient'
-import type { User } from '@supabase/supabase-js'
+import { useAuth } from "@/components/auth-provider"
+import { useToast } from "@/hooks/use-toast"
 
 // Mock data - replace with actual API calls
 const mockStats = {
@@ -30,27 +28,40 @@ const mockTips = [
 
 export default function DashboardPage() {
   const [currentTip, setCurrentTip] = useState(0)
-  const [user, setUser] = useState<User | null>(null)
   const [isFirstTime, setIsFirstTime] = useState(false)
   const router = useRouter()
+  const { user, loading, signOut } = useAuth()
+  const { toast } = useToast()
 
   useEffect(() => {
-    if (!supabase) return;
-    
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        router.push("/login")
-      } else {
-        setUser(user)
-        // First-time detection: if created_at is within 2 minutes of now
-        const created = user.created_at ? new Date(user.created_at) : null
-        const now = new Date()
-        if (created && typeof created.getTime === 'function' && (now.getTime() - created.getTime() < 2 * 60 * 1000)) {
-          setIsFirstTime(true)
-        }
+    if (!loading && !user) {
+      router.push("/login")
+    } else if (user) {
+      // First-time detection: if created_at is within 2 minutes of now
+      const created = user.created_at ? new Date(user.created_at) : null
+      const now = new Date()
+      if (created && typeof created.getTime === 'function' && (now.getTime() - created.getTime() < 2 * 60 * 1000)) {
+        setIsFirstTime(true)
       }
-    })
-  }, [router])
+    }
+  }, [user, loading, router])
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      toast({ 
+        title: "Signed out successfully", 
+        description: "Come back soon, Chef! 👨‍🍳" 
+      })
+      router.push("/login")
+    } catch (error) {
+      toast({ 
+        title: "Error signing out", 
+        description: "Please try again", 
+        variant: "destructive" 
+      })
+    }
+  }
 
   // Helper to get display name
   const getDisplayName = () => {
@@ -60,6 +71,23 @@ export default function DashboardPage() {
       user.email ||
       "Chef"
     )
+  }
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your kitchen...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    return null
   }
 
   return (
@@ -204,6 +232,7 @@ export default function DashboardPage() {
                 <Button
                   variant="ghost"
                   className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={handleSignOut}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out

@@ -2,6 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "@/components/auth-provider"
 import ClientRoot from "@/components/client-root"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -18,11 +20,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
-        <ClientRoot>
-          {children}
-        </ClientRoot>
+    <html lang="en">
+      <body className={inter.className}>
+        <AuthProvider>
+          <ClientRoot>
+            {children}
+          </ClientRoot>
+        </AuthProvider>
       </body>
     </html>
   )

@@ -116,9 +116,14 @@ Instructions:
     }
   }
 
+  // Add variety based on recipe number
+  const varietyInstructions = recipeNumber === 1 
+    ? "Make this the FIRST recipe - focus on classic, comforting flavors and simple techniques."
+    : "Make this the SECOND recipe - focus on creative, innovative flavors and slightly more adventurous techniques.";
+
   const modeSpecificInstruction = isFridgeMode 
-    ? `\n\nMake this recipe ${recipeNumber} of 5. Keep it SIMPLE and BEGINNER-FRIENDLY. No complex techniques or ingredients.`
-    : `\n\nMake this recipe ${recipeNumber} of 5. Be CREATIVE and SOPHISTICATED. Showcase culinary expertise and make it restaurant-quality.`;
+    ? `\n\nMake this recipe ${recipeNumber} of 2. Keep it SIMPLE and BEGINNER-FRIENDLY. No complex techniques or ingredients. ${varietyInstructions} IMPORTANT: Make this recipe COMPLETELY DIFFERENT from any other recipe you might generate. Use different ingredients, cooking methods, and flavor profiles.`
+    : `\n\nMake this recipe ${recipeNumber} of 2. Be CREATIVE and SOPHISTICATED. Showcase culinary expertise and make it restaurant-quality. ${varietyInstructions} IMPORTANT: Make this recipe COMPLETELY DIFFERENT from any other recipe you might generate. Use different ingredients, cooking methods, and flavor profiles.`;
 
   return basePrompt + '\n\n' + formatPrompt + '\n\n' + modeRules + '\n\nREQUIREMENTS:' + requirements + modeSpecificInstruction;
 }
@@ -190,7 +195,7 @@ function parseAIRecipe(
     }
 
     return {
-      id: `ai-${Date.now()}-${recipeNumber}`,
+      id: `ai-${Date.now()}-${recipeNumber}-${Math.random().toString(36).substr(2, 9)}`,
       title: titleMatch[1].trim(),
               image: `/placeholder.svg?height=200&width=300&text=${encodeURIComponent(titleMatch[1].trim())}`,
         cookingTime: cookingTimeMatch ? parseInt(cookingTimeMatch[1]) : 30,
@@ -281,7 +286,21 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
     try {
       const recipe = await generateSingleRecipe(ingredients, query, filters, i + 1, mode);
       if (recipe) {
-        aiRecipes.push(recipe);
+        // Check if this recipe is a duplicate
+        const isDuplicate = aiRecipes.some(existingRecipe => 
+          existingRecipe.title.toLowerCase() === recipe.title.toLowerCase()
+        );
+        
+        if (!isDuplicate) {
+          aiRecipes.push(recipe);
+        } else {
+          logger.warn('Duplicate recipe detected, skipping', { title: recipe.title });
+          // Try to generate a different recipe
+          const alternativeRecipe = await generateSingleRecipe(ingredients, query, filters, i + 1, mode);
+          if (alternativeRecipe && !aiRecipes.some(r => r.title.toLowerCase() === alternativeRecipe.title.toLowerCase())) {
+            aiRecipes.push(alternativeRecipe);
+          }
+        }
       }
       
       // Add longer delay between requests to avoid rate limiting

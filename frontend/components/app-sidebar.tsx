@@ -19,7 +19,6 @@ import { ChefHat, Home, Search, History, User, LogOut, Bookmark, Settings } from
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/components/auth-provider"
-import { removeToken } from "@/lib/auth"
 import { supabase } from "@/lib/supabaseClient"
 
 const menuItems = [
@@ -61,9 +60,14 @@ export function AppSidebar() {
   const { user, loading } = useAuth()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut(); // Sign out from Supabase
-    removeToken(); // Remove the JWT token
-    router.push('/login'); // Redirect to login page
+    try {
+      if (supabase) {
+        await supabase.auth.signOut(); // Sign out from Supabase
+      }
+      router.push('/login'); // Redirect to login page
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   }
 
   const getDisplayName = () => {

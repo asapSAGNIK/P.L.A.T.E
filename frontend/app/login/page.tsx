@@ -1,9 +1,6 @@
 "use client"
 
-export const dynamic = 'force-dynamic'
-
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -11,65 +8,50 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChefHat, Mail } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { isUserAuthenticated } from '../../lib/simplified-auth'
-import { supabase } from '../../lib/supabaseClient'
+import { useAuth } from "@/components/auth-provider"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const { user, loading, signInWithGoogle } = useAuth()
 
   const handleGoogleLogin = async () => {
     setIsLoading(true)
     try {
-      if (!supabase) {
-        toast({ title: 'Google login failed', description: 'Supabase not available', variant: 'destructive' })
-        return
-      }
-      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
-      if (error) {
-        toast({ title: 'Google login failed', description: error.message, variant: 'destructive' })
-      }
-      // Supabase will handle the redirect
+      await signInWithGoogle()
+      toast({ 
+        title: "Welcome back, Chef! 👨‍🍳", 
+        description: "Ready to cook something amazing!" 
+      })
     } catch (error) {
-      toast({ title: 'Google login failed', variant: 'destructive' })
+      toast({ 
+        title: 'Google login failed', 
+        description: error instanceof Error ? error.message : 'An error occurred', 
+        variant: 'destructive' 
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    if (!supabase) return;
-    
-    // Check for existing session on mount
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        const authenticated = await isUserAuthenticated();
-        if (authenticated) {
-          router.push("/dashboard");
-        }
-      }
-    })
-    
-    // Listen for auth state changes
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        toast({ 
-          title: "Welcome back, Chef! 👨‍🍳", 
-          description: "Ready to cook something amazing!" 
-        });
-        
-        // Direct redirect on successful Google OAuth
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 1000);
-      }
-    })
-    
-    return () => {
-      listener?.subscription.unsubscribe()
+    if (!loading && user) {
+      router.push("/dashboard")
     }
-  }, [router, toast])
+  }, [user, loading, router])
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking your session...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
@@ -86,7 +68,7 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <Button onClick={handleGoogleLogin} variant="outline" className="w-full" disabled={isLoading}>
             <Mail className="mr-2 h-4 w-4" />
-            Continue with Google
+            {isLoading ? "Signing in..." : "Continue with Google"}
           </Button>
         </CardContent>
         <CardFooter className="text-center">

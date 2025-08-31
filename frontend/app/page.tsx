@@ -1,32 +1,33 @@
 "use client"
-
-export const dynamic = 'force-dynamic'
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from '../lib/supabaseClient'
+import { useAuth } from "@/components/auth-provider"
 
 export default function HomePage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
+  const { user, loading } = useAuth()
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false)
-      router.replace("/login")
-      return
-    }
-    
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    if (!loading) {
       if (user) {
         router.replace("/dashboard")
       } else {
         router.replace("/login")
       }
-      setLoading(false)
-    })
-  }, [router])
+    }
+  }, [user, loading, router])
 
-  // Optionally, show a loading spinner while checking session
-  if (loading) return <div>Loading...</div>
+  // Show a loading spinner while checking session
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your kitchen...</p>
+        </div>
+      </div>
+    )
+  }
+
   return null
 }
