@@ -49,7 +49,7 @@ function FindRecipesContent() {
 
   // Set initial mode from URL params
   useEffect(() => {
-    const urlMode = searchParams.get("mode")
+    const urlMode = searchParams?.get("mode")
     if (urlMode === "explore" || urlMode === "fridge") {
       setMode(urlMode)
     }
