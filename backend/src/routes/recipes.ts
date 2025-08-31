@@ -13,6 +13,7 @@ const router = Router();
 const findByIngredientsSchema = z.object({
   ingredients: z.array(z.string().min(1)).optional(), // Made optional
   query: z.string().min(1).optional(), // Added for explore mode
+  mode: z.enum(['fridge', 'explore']).optional().default('fridge'), // Add mode parameter
   filters: z.object({
     cuisine: z.string().optional(),
     diet: z.string().optional(),
@@ -29,7 +30,7 @@ router.post('/find-by-ingredients',
   ...enforceRateLimit({ maxRequestsPerDay: 20 }), // 20 requests per day
   async (req: Request, res: Response) => {
     try {
-      const { ingredients, query, filters } = findByIngredientsSchema.parse(req.body);
+      const { ingredients, query, filters, mode } = findByIngredientsSchema.parse(req.body);
 
       // Ensure at least one of ingredients or query is provided
       if (!ingredients && !query) {
@@ -40,16 +41,18 @@ router.post('/find-by-ingredients',
         ingredients, 
         query, 
         filters,
+        mode,
         userId: req.user?.userId,
         rateLimitRemaining: req.rateLimit?.remaining 
       });
 
       // Generate AI recipes using the service
-      const aiRecipes = await generateAIRecipes({ ingredients, query, filters });
+      const aiRecipes = await generateAIRecipes({ ingredients, query, filters, mode });
 
       logger.info('AI recipe generation completed', { 
         generated: aiRecipes.length,
         recipes: aiRecipes.map((r: any) => r.title),
+        mode,
         userId: req.user?.userId,
         rateLimitRemaining: req.rateLimit?.remaining 
       });
