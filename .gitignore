@@ -50,6 +50,8 @@ supabase/.snapshots
 # Documentation and notes (private)
 docs/
 docs/notes.md
+Notes.md
+notes.md
 
 # Testing and development files (private)
 RECIPE-GENERATION-FIX.md

@@ -14,12 +14,13 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { IngredientsInput } from "@/components/ingredients-input"
 import { MealTypeSelector } from "@/components/meal-type-selector"
 import { MoodSelector } from "@/components/mood-selector"
-import { ChefHat, Clock, Users, Sparkles, Refrigerator, Compass } from "lucide-react"
+import { ChefHat, Clock, Users, Sparkles, Refrigerator, Compass, Bookmark, BookmarkCheck, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RecipeCard } from "@/components/recipe-card"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/components/auth-provider"
 import { supabase } from "@/lib/supabaseClient"
+import { getAuthTokenForAPI, ensureAuthenticated } from '@/lib/simplified-auth'
 
 function FindRecipesContent() {
   const searchParams = useSearchParams()
@@ -36,7 +37,191 @@ function FindRecipesContent() {
   const [recipes, setRecipes] = useState([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [savedRecipes, setSavedRecipes] = useState<Set<string>>(new Set())
+  const [savingRecipe, setSavingRecipe] = useState<string | null>(null)
+
+  // Load saved recipes on component mount
+  useEffect(() => {
+    const loadSavedRecipes = async () => {
+      try {
+        const token = await getAuthTokenForAPI();
+        if (!token) return;
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recipes/saved`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Handle different response formats
+          if (Array.isArray(data)) {
+            const savedRecipeIds = new Set<string>(data.map((item: any) => item.recipe_id));
+            setSavedRecipes(savedRecipeIds);
+            console.log('Loaded saved recipes:', savedRecipeIds.size, 'recipes');
+          } else if (data && Array.isArray(data.recipes)) {
+            const savedRecipeIds = new Set<string>(data.recipes.map((item: any) => item.recipe_id));
+            setSavedRecipes(savedRecipeIds);
+            console.log('Loaded saved recipes:', savedRecipeIds.size, 'recipes');
+          } else if (data && typeof data === 'object') {
+            // Handle case where data is an object but not in expected format
+            console.warn('Unexpected saved recipes response format:', data);
+            setSavedRecipes(new Set());
+          } else {
+            console.warn('Invalid saved recipes response:', data);
+            setSavedRecipes(new Set());
+          }
+        } else {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (parseError) {
+            errorData = { error: 'Unknown error' };
+          }
+          console.error('Failed to load saved recipes:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData
+          });
+          // Don't show error to user for saved recipes loading - it's not critical
+        }
+      } catch (error) {
+        console.error('Error loading saved recipes:', error);
+      }
+    };
+
+    loadSavedRecipes();
+  }, []);
   const { user } = useAuth()
+
+  const handleSaveRecipe = async (recipe: any) => {
+    setSavingRecipe(recipe.id)
+    
+    try {
+      const authenticated = await ensureAuthenticated();
+      if (!authenticated) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to save recipes",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const token = await getAuthTokenForAPI();
+      if (!token) {
+        toast({
+          title: "Authentication error",
+          description: "Unable to get authentication token",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const isCurrentlySaved = savedRecipes.has(recipe.id);
+
+      if (isCurrentlySaved) {
+        // Remove saved recipe
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recipes/saved/${recipe.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to remove saved recipe');
+        }
+
+        setSavedRecipes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(recipe.id);
+          return newSet;
+        });
+
+        toast({
+          title: "Recipe removed",
+          description: "Recipe has been removed from your saved recipes",
+        });
+      } else {
+        // Save recipe - Transform AI recipe data to match backend expectations
+        const recipeData = {
+          title: recipe.title,
+          description: recipe.description,
+          cook_time_minutes: recipe.cookingTime,
+          servings: recipe.servings,
+          difficulty: recipe.difficulty,
+          source: 'Gemini',
+          original_recipe_id: recipe.id, // AI recipe ID for tracking
+          instructions: Array.isArray(recipe.instructions) ? recipe.instructions.join('\n') : recipe.instructions,
+          ingredients: recipe.ingredients, // Will be converted to JSONB in backend
+          rating: recipe.rating
+        };
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recipes/save`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(recipeData),
+        });
+
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (parseError) {
+            console.error('Failed to parse error response:', parseError);
+            errorData = { error: 'Unknown error - unable to parse response' };
+          }
+          
+          console.error('Save recipe error:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+            recipeTitle: recipe.title
+          });
+          
+          // Provide more specific error messages
+          let errorMessage = 'Failed to save recipe';
+          if (response.status === 401) {
+            errorMessage = 'Authentication failed. Please log in again.';
+          } else if (response.status === 400) {
+            errorMessage = errorData.error || 'Invalid recipe data. Please try again.';
+          } else if (response.status === 500) {
+            errorMessage = 'Server error. Please try again later.';
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = `Failed to save recipe (${response.status})`;
+          }
+          
+          throw new Error(errorMessage);
+        }
+
+        setSavedRecipes(prev => new Set(prev).add(recipe.id));
+
+        toast({
+          title: "Recipe saved!",
+          description: "Recipe has been added to your saved recipes",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save recipe. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingRecipe(null);
+    }
+  }
 
   // Define mood to filter mappings
   const moodMappings: { [key: string]: { cuisine?: string; mealType?: string; maxTime?: number; query?: string; diet?: string; includeIngredients?: string; } } = {
@@ -161,7 +346,7 @@ function FindRecipesContent() {
       if (rateLimitInfo) {
         toast({
           title: "Recipes Generated!",
-          description: `Generated ${recipesData.length} recipes. ${rateLimitInfo.remaining} generations remaining today.`,
+          description: `Generated ${recipesData.length} recipes. ${rateLimitInfo.remaining} searches remaining today.`,
           variant: "default",
         });
       } else {
@@ -506,10 +691,28 @@ function FindRecipesContent() {
                     🎉 Your AI-Generated Recipes
                   </h2>
                   {recipes.map((recipe: any, index: number) => (
-                    <Card key={recipe.id} className="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm">
+                    <Card key={recipe.id} className="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm relative">
                       <CardContent className="pt-6">
                         <div className="prose prose-lg max-w-none">
-                          <h3 className="text-xl font-bold text-gray-900 mb-2">
+                          {/* Save Recipe Button - Top Right */}
+                          <div className="absolute top-4 right-4 z-10">
+                            <Button
+                              onClick={() => handleSaveRecipe(recipe)}
+                              disabled={savingRecipe === recipe.id}
+                              size="sm"
+                              variant={savedRecipes.has(recipe.id) ? "default" : "secondary"}
+                              className={`h-10 w-10 p-0 rounded-full shadow-md hover:shadow-lg transition-all duration-200 ${savedRecipes.has(recipe.id) ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-white/95 hover:bg-white border border-gray-200 hover:border-gray-300'}`}
+                            >
+                              {savingRecipe === recipe.id ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : savedRecipes.has(recipe.id) ? (
+                                <BookmarkCheck className="h-5 w-5 fill-current" />
+                              ) : (
+                                <Bookmark className="h-5 w-5 text-gray-600" />
+                              )}
+                            </Button>
+                          </div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-2 pr-20">
                             {index + 1}. {recipe.title}
                           </h3>
                           <p className="text-gray-600 mb-4">{recipe.description}</p>
@@ -547,6 +750,7 @@ function FindRecipesContent() {
                               ))}
                             </ol>
                           </div>
+
                         </div>
                       </CardContent>
                     </Card>

@@ -14,7 +14,6 @@ export interface RecipeFilters {
 export interface AIRecipe {
   id: string;
   title: string;
-  image: string;
   cookingTime: number;
   difficulty: string;
   ingredients: string[];
@@ -116,14 +115,45 @@ Instructions:
     }
   }
 
-  // Add variety based on recipe number
+  // Add variety based on recipe number with specific cooking methods
   const varietyInstructions = recipeNumber === 1 
-    ? "Make this the FIRST recipe - focus on classic, comforting flavors and simple techniques."
-    : "Make this the SECOND recipe - focus on creative, innovative flavors and slightly more adventurous techniques.";
+    ? `Make this the FIRST recipe - focus on classic, comforting flavors. Use simple techniques like: stir-frying, basic mixing, or simple assembly. Consider making it a traditional, familiar dish.`
+    : `Make this the SECOND recipe - focus on creative, innovative flavors. Use different techniques like: scrambling, folding, rolling, or layering. Consider making it a fusion dish or with a unique presentation.`;
+
+  // Add specific variety prompts based on common ingredients
+  let ingredientVarietyPrompt = '';
+  if (ingredients && ingredients.length > 0) {
+    const ingredientStr = ingredients.join(', ').toLowerCase();
+    
+    if (ingredientStr.includes('bread')) {
+      ingredientVarietyPrompt = recipeNumber === 1 
+        ? `\n\nSPECIFIC VARIETY FOR BREAD: Make this a traditional sandwich or toast. Focus on classic fillings and simple assembly. Consider making it a simple sandwich, toast, or basic bread-based dish.`
+        : `\n\nSPECIFIC VARIETY FOR BREAD: Make this a creative fusion dish. Consider making it a quesadilla-style, pizza-style, deconstructed bowl, or a completely different format like a salad with bread croutons, or a bread-based casserole. Use different cooking methods like toasting, grilling, or baking.`;
+    }
+    
+    if (ingredientStr.includes('rotis')) {
+      ingredientVarietyPrompt = recipeNumber === 1 
+        ? `\n\nSPECIFIC VARIETY FOR ROTI: Make this a traditional wrap or roll. Focus on classic fillings and simple assembly. Consider making it a simple stuffed roti or basic wrap.`
+        : `\n\nSPECIFIC VARIETY FOR ROTI: Make this a creative fusion dish. Consider making it a quesadilla-style, pizza-style, deconstructed bowl, or a completely different format like a salad with roti croutons, or a roti-based casserole. Use different cooking methods like toasting, grilling, or baking.`;
+    }
+    
+    if (ingredientStr.includes('eggs')) {
+      ingredientVarietyPrompt += recipeNumber === 1 
+        ? `\n\nEGG VARIETY: Use eggs as the main protein - scrambled, fried, or boiled.`
+        : `\n\nEGG VARIETY: Use eggs creatively - as a binding agent, in a sauce, or as a topping. Consider different textures like runny, set, or mixed.`;
+    }
+    
+    // Add variety for limited ingredient scenarios
+    if (ingredients && ingredients.length <= 3) {
+      ingredientVarietyPrompt += recipeNumber === 1 
+        ? `\n\nLIMITED INGREDIENTS: With few ingredients, focus on technique and presentation. Make this a simple, classic preparation.`
+        : `\n\nLIMITED INGREDIENTS: With few ingredients, get creative with presentation and cooking methods. Consider deconstructed versions, different textures, or fusion approaches.`;
+    }
+  }
 
   const modeSpecificInstruction = isFridgeMode 
-    ? `\n\nMake this recipe ${recipeNumber} of 2. Keep it SIMPLE and BEGINNER-FRIENDLY. No complex techniques or ingredients. ${varietyInstructions} IMPORTANT: Make this recipe COMPLETELY DIFFERENT from any other recipe you might generate. Use different ingredients, cooking methods, and flavor profiles.`
-    : `\n\nMake this recipe ${recipeNumber} of 2. Be CREATIVE and SOPHISTICATED. Showcase culinary expertise and make it restaurant-quality. ${varietyInstructions} IMPORTANT: Make this recipe COMPLETELY DIFFERENT from any other recipe you might generate. Use different ingredients, cooking methods, and flavor profiles.`;
+    ? `\n\nMake this recipe ${recipeNumber} of 2. Keep it SIMPLE and BEGINNER-FRIENDLY. No complex techniques or ingredients. ${varietyInstructions}${ingredientVarietyPrompt}\n\nCRITICAL: This must be COMPLETELY DIFFERENT from the other recipe. Use different cooking methods, different ingredient combinations, and different presentation styles. If the other recipe is a wrap, make this a bowl, salad, or different format.`
+    : `\n\nMake this recipe ${recipeNumber} of 2. Be CREATIVE and SOPHISTICATED. Showcase culinary expertise and make it restaurant-quality. ${varietyInstructions}${ingredientVarietyPrompt}\n\nCRITICAL: This must be COMPLETELY DIFFERENT from the other recipe. Use different cooking methods, different ingredient combinations, and different presentation styles. If the other recipe is a wrap, make this a bowl, salad, or different format.`;
 
   return basePrompt + '\n\n' + formatPrompt + '\n\n' + modeRules + '\n\nREQUIREMENTS:' + requirements + modeSpecificInstruction;
 }
@@ -197,10 +227,9 @@ function parseAIRecipe(
     return {
       id: `ai-${Date.now()}-${recipeNumber}-${Math.random().toString(36).substr(2, 9)}`,
       title: titleMatch[1].trim(),
-              image: `/placeholder.svg?height=200&width=300&text=${encodeURIComponent(titleMatch[1].trim())}`,
-        cookingTime: cookingTimeMatch ? parseInt(cookingTimeMatch[1]) : 30,
-        difficulty: difficultyMatch ? difficultyMatch[1] : (ingredients && ingredients.length > 0 ? 'Easy' : 'Medium'),
-        ingredients: ingredientsList,
+      cookingTime: cookingTimeMatch ? parseInt(cookingTimeMatch[1]) : 30,
+      difficulty: difficultyMatch ? difficultyMatch[1] : (ingredients && ingredients.length > 0 ? 'Easy' : 'Medium'),
+      ingredients: ingredientsList,
       description: descriptionMatch ? descriptionMatch[1].trim() : 'A delicious AI-generated recipe',
       rating: 4, // Default rating for AI recipes
       servings: servingsMatch ? parseInt(servingsMatch[1]) : (filters?.servings || 2),
@@ -256,8 +285,23 @@ async function generateSingleRecipe(
     }
 
     return parsedRecipe;
-  } catch (error) {
-    logger.error('Error generating single recipe', { error, recipeNumber });
+  } catch (error: any) {
+    logger.error('Error generating single recipe', { 
+      error: error.message, 
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      recipeNumber 
+    });
+    
+    // Handle specific Gemini API errors
+    if (error.response?.status === 503) {
+      logger.warn('Gemini API temporarily unavailable (503)', { recipeNumber });
+    } else if (error.response?.status === 429) {
+      logger.warn('Gemini API rate limit exceeded (429)', { recipeNumber });
+    } else if (error.response?.status === 400) {
+      logger.warn('Gemini API bad request (400)', { recipeNumber, error: error.response.data });
+    }
+    
     return null;
   }
 }
@@ -286,18 +330,33 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
     try {
       const recipe = await generateSingleRecipe(ingredients, query, filters, i + 1, mode);
       if (recipe) {
-        // Check if this recipe is a duplicate
-        const isDuplicate = aiRecipes.some(existingRecipe => 
-          existingRecipe.title.toLowerCase() === recipe.title.toLowerCase()
-        );
+        // Check if this recipe is a duplicate or too similar
+        const isDuplicate = aiRecipes.some(existingRecipe => {
+          const titleMatch = existingRecipe.title.toLowerCase() === recipe.title.toLowerCase();
+          const similarWords = ['cheesy', 'cheese', 'simple', 'easy', 'quick'];
+          const hasSimilarWords = similarWords.some(word => 
+            existingRecipe.title.toLowerCase().includes(word) && recipe.title.toLowerCase().includes(word)
+          );
+          return titleMatch || hasSimilarWords;
+        });
         
         if (!isDuplicate) {
           aiRecipes.push(recipe);
         } else {
-          logger.warn('Duplicate recipe detected, skipping', { title: recipe.title });
-          // Try to generate a different recipe
+          logger.warn('Duplicate or similar recipe detected, skipping', { 
+            title: recipe.title, 
+            existingTitles: aiRecipes.map(r => r.title) 
+          });
+          // Try to generate a different recipe with more specific variety instructions
           const alternativeRecipe = await generateSingleRecipe(ingredients, query, filters, i + 1, mode);
-          if (alternativeRecipe && !aiRecipes.some(r => r.title.toLowerCase() === alternativeRecipe.title.toLowerCase())) {
+          if (alternativeRecipe && !aiRecipes.some(r => {
+            const titleMatch = r.title.toLowerCase() === alternativeRecipe.title.toLowerCase();
+            const similarWords = ['cheesy', 'cheese', 'simple', 'easy', 'quick'];
+            const hasSimilarWords = similarWords.some(word => 
+              r.title.toLowerCase().includes(word) && alternativeRecipe.title.toLowerCase().includes(word)
+            );
+            return titleMatch || hasSimilarWords;
+          })) {
             aiRecipes.push(alternativeRecipe);
           }
         }
@@ -334,7 +393,12 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
   });
 
   if (aiRecipes.length === 0) {
-    throw new Error('Failed to generate any recipes. Please try again.');
+    // Provide a fallback error message based on the mode
+    const fallbackMessage = mode === 'fridge' 
+      ? 'Unable to generate recipes at the moment. Please try again later or check your ingredients.'
+      : 'Unable to generate recipes at the moment. Please try again later or try a different mood.';
+    
+    throw new Error(fallbackMessage);
   }
 
   return aiRecipes;
