@@ -12,72 +12,39 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator"
 import { ChefHat, Mail } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { setToken } from '../../lib/auth'
-import { supabase } from '../../lib/supabaseClient'
+import { createClient } from '../../lib/supabase/client'
 
 export default function RegisterPage() {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const supabase = createClient()
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Removed custom registration - using Google OAuth only
 
-    if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match!",
-        description: "Make sure both passwords are identical.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      // Use backend endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Account created!",
-          description: "Welcome to Plate!",
-        })
-        const data = await response.json()
-        setToken(data.token)
-        router.push("/dashboard")
-      } else {
-        throw new Error("Registration failed")
-      }
-    } catch (error) {
-      toast({
-        title: "Registration failed",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleGoogleRegister = async () => {
+  const handleGoogleSignIn = async () => {
     setIsLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' })
+      const { error } = await supabase.auth.signInWithOAuth({ 
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      })
       if (error) {
-        toast({ title: 'Google registration failed', description: error.message, variant: 'destructive' })
+        toast({ 
+          title: 'Google sign-in failed', 
+          description: error.message, 
+          variant: 'destructive' 
+        })
       }
-      // Supabase will handle the redirect
+      // Supabase will handle the redirect automatically
     } catch (error) {
-      toast({ title: 'Google registration failed', variant: 'destructive' })
+      toast({ 
+        title: 'Google sign-in failed', 
+        description: 'Please try again',
+        variant: 'destructive' 
+      })
     } finally {
       setIsLoading(false)
     }
@@ -114,9 +81,9 @@ export default function RegisterPage() {
           <CardDescription>Ready to become a culinary master? Let's get you started! 🔥</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button onClick={handleGoogleRegister} variant="outline" className="w-full" disabled={isLoading}>
+          <Button onClick={handleGoogleSignIn} variant="outline" className="w-full" disabled={isLoading}>
             <Mail className="mr-2 h-4 w-4" />
-            Continue with Google
+            {isLoading ? "Signing in..." : "Continue with Google"}
           </Button>
         </CardContent>
         <CardFooter className="text-center">
