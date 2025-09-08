@@ -1,4 +1,6 @@
-import { supabase } from './supabaseClient'
+import { createClient } from './supabase/client'
+
+const supabase = createClient()
 
 /**
  * Get the current authentication token for API calls
@@ -35,6 +37,32 @@ export async function getCurrentUser() {
     return user
   } catch (error) {
     console.error('Error getting current user:', error)
+    return null
+  }
+}
+
+/**
+ * Get Supabase session
+ */
+export async function getSupabaseSession() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    return { session }
+  } catch (error) {
+    console.error('Error getting session:', error)
+    return { session: null }
+  }
+}
+
+/**
+ * Get user info
+ */
+export async function getUserInfo() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    return user
+  } catch (error) {
+    console.error('Error getting user info:', error)
     return null
   }
 }

@@ -7,15 +7,19 @@ const RecipeList: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  const authHeader = getAuthHeader()
-
   useEffect(() => {
     const fetchRecipes = async () => {
       setIsLoading(true)
       try {
+        // Get auth header
+        const authHeader = await getAuthHeader()
+        
         // Use backend endpoint for fetching recipes
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recipes`, {
-          headers: authHeader.Authorization ? { 'Content-Type': 'application/json', Authorization: authHeader.Authorization } : { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(('Authorization' in authHeader) ? { Authorization: authHeader.Authorization } : {})
+          },
         })
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Failed to fetch recipes')
@@ -27,7 +31,7 @@ const RecipeList: React.FC = () => {
       }
     }
     fetchRecipes()
-  }, [authHeader])
+  }, [])
 
   return (
     <div>
