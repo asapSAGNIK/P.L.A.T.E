@@ -16,6 +16,8 @@ const envSchema = z.object({
   AWS_POLLY_ACCESS_KEY_ID: z.string().optional(),
   AWS_POLLY_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_POLLY_REGION: z.string().optional(),
+  // Vercel URL for production
+  VERCEL_URL: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env); 

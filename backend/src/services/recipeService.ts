@@ -235,8 +235,14 @@ export async function getUserSavedRecipes(userId: string): Promise<{ success: bo
       return { success: false, error: 'Failed to fetch saved recipes' };
     }
 
-    logger.info('Successfully fetched saved recipes', { userId, count: savedRecipes?.length || 0 });
-    return { success: true, recipes: savedRecipes as SavedRecipe[] };
+    // Transform the data to match SavedRecipe interface
+    const transformedRecipes: SavedRecipe[] = (savedRecipes || []).map((item: any) => ({
+      ...item,
+      recipe: Array.isArray(item.recipe) ? item.recipe[0] : item.recipe
+    }));
+
+    logger.info('Successfully fetched saved recipes', { userId, count: transformedRecipes.length });
+    return { success: true, recipes: transformedRecipes };
 
   } catch (error) {
     logger.error('Unexpected error fetching saved recipes', { error, userId });

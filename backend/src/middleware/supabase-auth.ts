@@ -26,7 +26,7 @@ export const authenticateSupabaseToken = async (req: Request, res: Response, nex
     // Add user info to request
     req.user = {
       userId: user.id,
-      email: user.email,
+      email: user.email || '', // Handle undefined email gracefully
       supabaseUser: user
     };
 
@@ -48,7 +48,7 @@ export const optionalSupabaseAuth = async (req: Request, res: Response, next: Ne
       if (!error && user) {
         req.user = {
           userId: user.id,
-          email: user.email,
+          email: user.email || '', // Handle undefined email gracefully
           supabaseUser: user
         };
       }

@@ -1,25 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Only ignore build errors in production
   eslint: {
-    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: process.env.NODE_ENV === 'production',
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,
   },
-  // Development optimizations
+  // Remove experimental options that may cause issues
   experimental: {
-    workerThreads: false,
-    cpus: 1,
+    // Removed workerThreads and cpus settings that can cause permission issues
   },
-  // Better development experience
-  onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
-  },
+  // Remove outdated onDemandEntries for Next.js 15
 }
 
 export default nextConfig

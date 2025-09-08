@@ -18,9 +18,23 @@ if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !env.FRONTEND_URL) {
   throw new Error('Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FRONTEND_URL');
 }
 
-// CORS middleware
+// CORS middleware - handle both development and production
+const allowedOrigins = env.ALLOWED_ORIGINS?.split(',') || [];
+
+if (env.NODE_ENV === 'production') {
+  // In production, allow the Vercel frontend URL
+  if (process.env.VERCEL_URL) {
+    allowedOrigins.push(`https://${process.env.VERCEL_URL}`);
+  }
+  // Also allow common localhost ports for development
+  allowedOrigins.push('http://localhost:3000', 'http://localhost:3001');
+} else {
+  // In development, allow localhost
+  allowedOrigins.push('http://localhost:3000', 'http://localhost:3001');
+}
+
 app.use(cors({
-  origin: env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: allowedOrigins,
   credentials: true
 }));
 
