@@ -1,5 +1,0 @@
-[33m0ea9514[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Update Backend to Supabase
-[33m63b5db5[m  Fix Dependencies
-[33me25f750[m  Fix Dependencies
-[33mb4ec2d9[m  Update User authentication to only use Google Auth
-[33m87cf2fd[m  Update Deployment Strategy
