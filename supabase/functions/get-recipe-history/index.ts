@@ -57,11 +57,13 @@ serve(async (req) => {
 
     console.log('Getting recipe history for user:', user.id, 'with limit:', limit)
 
-    // Use the existing database function to get recipe generation history
-    const { data: history, error } = await supabase.rpc('get_user_recipe_generation_history', {
-      p_user_id: user.id,
-      p_limit: limit
-    })
+    // Get recipe generation history directly from the table
+    const { data: history, error } = await supabase
+      .from('recipe_generation_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit)
 
     if (error) {
       console.error('Error fetching recipe generation history:', error)
@@ -74,9 +76,27 @@ serve(async (req) => {
       )
     }
 
+    // Transform the data to include individual recipes from recipe_data
+    const transformedHistory = []
+    for (const entry of history || []) {
+      if (entry.recipe_data) {
+        // If recipe_data exists, add it as a separate history entry
+        transformedHistory.push({
+          id: entry.id,
+          mode: entry.mode,
+          recipe_data: entry.recipe_data,
+          ingredients_used: entry.ingredients_used,
+          query_used: entry.query_used,
+          filters: entry.filters,
+          generated_at: entry.generated_at,
+          created_at: entry.created_at
+        })
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
-        history: history || []
+        history: transformedHistory
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
