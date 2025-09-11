@@ -1,0 +1,52 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Migration and test files (temporary)
+deploy-and-test.bat
+test-*.js
+verify-*.js
+debug-*.js
+
+# Migration documentation (temporary)
+IMMEDIATE_ACTIONS.md
+MIGRATION_STATUS.md
+MIGRATION_INSTRUCTIONS.md
+SUPABASE_MIGRATION_ACTION_PLAN.md
+supabase/functions/TYPESCRIPT_SETUP.md
+
+# Database migration files (temporary)
+apply-migration.sql
+fix-missing-columns.sql
+create_database_tables.sql
+
+# Development scripts
+supabase/deploy.bat
+supabase/deploy.sh
+
+# Miscellaneous temporary files
+er.name
