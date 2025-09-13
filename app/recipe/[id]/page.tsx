@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,7 @@ interface RecipeDetails {
   rating: number;
 }
 
-export default function RecipeDetailPage() {
+function RecipeDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function RecipeDetailPage() {
     if (referrer === 'history') return '/history';
     if (referrer === 'saved') return '/saved';
     if (referrer === 'recipes') return '/recipes';
-    return '/dashboard';
+    return '/find-recipes';
   };
 
   const getBackText = () => {
@@ -52,7 +52,7 @@ export default function RecipeDetailPage() {
     if (referrer === 'history') return 'Back to Cooking History';
     if (referrer === 'saved') return 'Back to Saved Recipes';
     if (referrer === 'recipes') return 'Back to Recipe Results';
-    return 'Back to Dashboard';
+    return 'Back to Find Recipes';
   };
 
   useEffect(() => {
@@ -298,5 +298,18 @@ export default function RecipeDetailPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function RecipeDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+        <p className="text-lg font-medium text-gray-600">Loading recipe details...</p>
+      </div>
+    }>
+      <RecipeDetailContent />
+    </Suspense>
   );
 }

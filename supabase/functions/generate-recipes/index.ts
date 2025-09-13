@@ -105,9 +105,9 @@ CRITICAL FORMATTING RULES:
 - Respect the exact cooking time limit
 - Respect the exact serving size`;
 
-  // Combine mode context with difficulty rules
-  const modeContext = isFridgeMode 
-    ? `\n\nMODE CONTEXT (Fridge Mode): You have limited ingredients available, so work with what's provided and keep it practical.`
+  // Phase 2: Enhanced mode context for smart grouping
+  const modeContext = isFridgeMode
+    ? `\n\nMODE CONTEXT (Fridge Mode): You have these specific ingredients to work with: ${ingredients?.join(', ') || 'none provided'}. Create a recipe using ONLY these ingredients (or reasonable substitutions). Focus on practical, delicious combinations that highlight these available ingredients.`
     : `\n\nMODE CONTEXT (Explore Mode): You have access to a full pantry, so be creative and adventurous.`;
 
   const modeRules = difficultyRules + modeContext;
@@ -546,10 +546,72 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
   const numberOfRecipes = 2;
   const aiRecipes: AIRecipe[] = [];
 
-  // Generate recipes sequentially to avoid rate limiting
-  for (let i = 0; i < numberOfRecipes; i++) {
+  // Phase 2: Smart ingredient grouping for fridge mode
+  let ingredientGroups: string[][] = [];
+
+  if (mode === 'fridge' && ingredients && ingredients.length > 0) {
+    // Simple, reliable grouping logic - ensure we always get 2 groups for 3+ ingredients
+    if (ingredients.length >= 4) {
+      // For 4+ ingredients, create balanced groups
+      const midPoint = Math.ceil(ingredients.length / 2);
+      ingredientGroups = [
+        ingredients.slice(0, midPoint),
+        ingredients.slice(midPoint)
+      ];
+      console.log('Balanced grouping for 4+ ingredients:', {
+        group1: ingredientGroups[0],
+        group2: ingredientGroups[1]
+      });
+    } else if (ingredients.length === 3) {
+      // For 3 ingredients, use first 2 for one recipe, all 3 for another
+      ingredientGroups = [
+        ingredients.slice(0, 2),
+        ingredients
+      ];
+      console.log('3-ingredient grouping:', {
+        group1: ingredientGroups[0],
+        group2: ingredientGroups[1]
+      });
+    } else {
+      // For 2 or fewer, use all ingredients for both recipes (will create variety through prompts)
+      ingredientGroups = [ingredients, ingredients];
+      console.log('Limited ingredients - using all for both recipes');
+    }
+  } else {
+    // For explore mode or no ingredients
+    ingredientGroups = ingredients ? [ingredients] : [];
+  }
+
+  // Generate recipes using smart ingredient groups
+  for (let i = 0; i < Math.min(numberOfRecipes, ingredientGroups.length); i++) {
     try {
-      const recipe = await generateSingleRecipe(ingredients, query, filters, i + 1, mode);
+      const groupIngredients = ingredientGroups[i];
+      const recipe = await generateSingleRecipe(groupIngredients, query, filters, i + 1, mode);
+
+      if (recipe) {
+        // Mark AI-added ingredients as required
+        const userIngredients = ingredients || [];
+        const userIngredientsLower = userIngredients.map(ing => ing.toLowerCase().trim());
+
+        // Process ingredients to mark required ones
+        const processedIngredients = recipe.ingredients.map((ing: string) => {
+          const ingLower = typeof ing === 'string' ? ing.toLowerCase().trim() : '';
+
+          // Check if this ingredient was provided by user
+          const isUserProvided = userIngredientsLower.some(userIng =>
+            ingLower.includes(userIng) || userIng.includes(ingLower)
+          );
+
+          return {
+            name: ing,
+            required: !isUserProvided
+          };
+        });
+
+        // Update recipe with processed ingredients
+        recipe.ingredients = processedIngredients as any;
+      }
+
       if (recipe) {
         // Check if this recipe is a duplicate or too similar
         const isDuplicate = aiRecipes.some(existingRecipe => {
@@ -569,7 +631,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
             existingTitles: aiRecipes.map(r => r.title)
           });
           // Try to generate a different recipe with more specific variety instructions
-          const alternativeRecipe = await generateSingleRecipe(ingredients, query, filters, i + 1, mode);
+          const alternativeRecipe = await generateSingleRecipe(groupIngredients, query, filters, i + 1, mode);
           if (alternativeRecipe && !aiRecipes.some(r => {
             const titleMatch = r.title.toLowerCase() === alternativeRecipe.title.toLowerCase();
             const similarWords = ['cheesy', 'cheese', 'simple', 'easy', 'quick'];

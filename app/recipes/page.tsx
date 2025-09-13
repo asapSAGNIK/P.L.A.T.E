@@ -204,7 +204,7 @@ function RecipesContent() {
             <ChefHat className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No recipes found</h3>
             <p className="text-gray-600 mb-4">Try adjusting your ingredients or search criteria</p>
-            <Link href="/dashboard">
+            <Link href="/find-recipes">
               <Button variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Search
@@ -234,7 +234,7 @@ export default function RecipesPage() {
             <h1 className="text-xl font-bold text-gray-900">Recipe Results</h1>
           </div>
           <div className="ml-auto">
-            <Link href="/dashboard">
+            <Link href="/find-recipes">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 New Search

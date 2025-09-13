@@ -27,9 +27,10 @@ export interface AIRecipe {
   instructions: string
   ingredients: Array<{
     name: string
-    amount: string
-    unit: string
-  }>
+    amount?: string
+    unit?: string
+    required?: boolean
+  }> | string[]
   rating: number
 }
 

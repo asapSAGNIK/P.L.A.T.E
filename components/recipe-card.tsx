@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Clock, Users, Star, Eye, Loader2, Bookmark, BookmarkCheck } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { supabaseAPI } from '../lib/supabase/api' // Import supabaseAPI
+import { validateDifficulty, validateSource } from '../lib/type-utils'
 
 interface Recipe {
   id: string
@@ -70,8 +71,8 @@ export function RecipeCard({ recipe, desiredServings, referrer }: RecipeCardProp
           description: recipe.description,
           cook_time_minutes: recipe.cookingTime,
           servings: recipe.servings,
-          difficulty: recipe.difficulty,
-          source: 'Gemini',
+          difficulty: validateDifficulty(recipe.difficulty),
+          source: validateSource('Gemini'),
           original_recipe_id: recipe.id,
           instructions: Array.isArray(recipe.instructions) ? recipe.instructions.join('\n') : recipe.instructions,
           ingredients: recipe.ingredients,

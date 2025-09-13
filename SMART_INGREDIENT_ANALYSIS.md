@@ -42,16 +42,26 @@ Instead of forcing all ingredients into every recipe, intelligently analyze ingr
 
 ### Phase 1: Basic Compatibility Analysis
 
-#### Ingredient Categories
+#### Dynamic Ingredient Classification
 ```typescript
-const INGREDIENT_CATEGORIES = {
-  proteins: ['chicken', 'beef', 'fish', 'eggs', 'tofu', 'pork', 'lamb'],
-  fruits: ['strawberry', 'mango', 'apple', 'banana', 'orange', 'grape'],
-  vegetables: ['tomato', 'onion', 'carrot', 'lettuce', 'spinach', 'bell pepper'],
-  carbs: ['bread', 'rice', 'pasta', 'potato', 'quinoa', 'oats'],
-  dairy: ['milk', 'cheese', 'yogurt', 'butter', 'cream'],
-  seasonings: ['salt', 'pepper', 'garlic', 'ginger', 'herbs', 'spices']
-};
+// AI-powered ingredient categorization (no hardcoding)
+async function classifyIngredient(ingredient: string): Promise<IngredientCategory> {
+  const prompt = `Classify this ingredient: "${ingredient}" into one of these categories:
+  - protein (meat, fish, eggs, dairy, legumes)
+  - vegetable (leafy greens, root vegetables, etc.)
+  - fruit (sweet, citrus, berries, etc.)
+  - grain (rice, wheat, oats, etc.)
+  - spice (herbs, seasonings, condiments)
+  - other (oils, nuts, etc.)
+  
+  Return only the category name.`;
+  
+  const response = await callGeminiAPI(prompt);
+  return response.trim().toLowerCase() as IngredientCategory;
+}
+
+// Cache classifications to avoid repeated API calls
+const ingredientCache = new Map<string, IngredientCategory>();
 ```
 
 #### Compatibility Levels
@@ -97,19 +107,27 @@ function generateRecipeGroups(ingredients: string[]): string[][] {
 
 #### Combination Logic
 ```typescript
-// Savory: Protein + Carb + Vegetable
-const savoryPatterns = [
-  ['chicken', 'rice', 'tomato'],     // Chicken Fried Rice
-  ['eggs', 'bread', 'onion'],        // Egg Sandwich
-  ['beef', 'pasta', 'garlic'],       // Beef Pasta
-];
-
-// Sweet: Fruit + Dairy + Optional Carb
-const sweetPatterns = [
-  ['strawberry', 'milk'],            // Strawberry Smoothie
-  ['mango', 'yogurt', 'oats'],       // Mango Yogurt Bowl
-  ['banana', 'milk', 'bread'],       // Banana Bread
-];
+// Dynamic Recipe Pattern Recognition (no hardcoding)
+async function findRecipePatterns(ingredients: string[], userPreferences?: UserPreferences): Promise<RecipePattern[]> {
+  const culturalContext = userPreferences?.culturalPreference ? 
+    `Consider ${userPreferences.culturalPreference} cooking traditions and techniques.` : '';
+  
+  const prompt = `Given these ingredients: ${ingredients.join(', ')}, 
+  suggest 2-3 different recipe patterns that would work well together.
+  ${culturalContext}
+  
+  Consider:
+  - Traditional cooking methods
+  - Flavor combinations
+  - Nutritional balance
+  - Cultural authenticity
+  
+  Return as JSON array of patterns with names and ingredient combinations.
+  Example: [{"name": "Chicken Fried Rice", "ingredients": ["chicken", "rice", "tomato"], "type": "savory"}]`;
+  
+  const response = await callGeminiAPI(prompt);
+  return JSON.parse(response);
+}
 ```
 
 ### Phase 3: User Guidance System

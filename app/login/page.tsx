@@ -9,12 +9,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ChefHat, Mail } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/components/auth-provider"
+import { useGuestMode } from "@/components/guest-mode-provider"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const { user, loading, signInWithGoogle } = useAuth()
+  const { clearGuestData } = useGuestMode()
 
   const handleGoogleLogin = async () => {
     setIsLoading(true)
@@ -37,9 +39,19 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.push("/dashboard")
+      // Clear guest data when user signs in
+      clearGuestData()
+      
+      // Check if there's a stored redirect path
+      const redirectPath = typeof window !== 'undefined' ? sessionStorage.getItem('redirectAfterSignIn') : null
+      if (redirectPath) {
+        sessionStorage.removeItem('redirectAfterSignIn')
+        router.push(redirectPath)
+      } else {
+        router.push("/find-recipes")
+      }
     }
-  }, [user, loading, router])
+  }, [user, loading, router, clearGuestData])
 
   // Show loading while checking auth state
   if (loading) {

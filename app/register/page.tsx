@@ -28,7 +28,7 @@ export default function RegisterPage() {
       const { error } = await supabase.auth.signInWithOAuth({ 
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}/find-recipes`
         }
       })
       if (error) {
@@ -54,13 +54,13 @@ export default function RegisterPage() {
     // Check for existing session on mount
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        router.push("/dashboard")
+        router.push("/find-recipes")
       }
     })
     // Listen for auth state changes
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN") {
-        router.push("/dashboard")
+        router.push("/find-recipes")
       }
     })
     return () => {

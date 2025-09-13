@@ -15,22 +15,18 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { ChefHat, Home, Search, History, User, LogOut, Bookmark, Settings } from "lucide-react"
+import { ChefHat, Home, Search, History, User, LogOut, Bookmark, Settings, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/components/auth-provider"
+import { useGuestMode } from "@/components/guest-mode-provider"
 import { createClient } from "@/lib/supabase/client"
 
 const menuItems = [
   {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: Home,
-  },
-  {
     title: "Find Recipes",
     url: "/find-recipes",
-    icon: Search,
+    icon: Home,
   },
   {
     title: "Saved Recipes",
@@ -58,15 +54,20 @@ export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter() // Initialize useRouter
   const { user, loading } = useAuth()
+  const { isGuestMode, redirectToSignIn } = useGuestMode()
 
   const handleLogout = async () => {
     try {
       const supabase = createClient()
       await supabase.auth.signOut(); // Sign out from Supabase
-      router.push('/login'); // Redirect to login page
+      router.push('/'); // Redirect to landing page
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  }
+
+  const handleSignIn = () => {
+    redirectToSignIn(false)
   }
 
   const getDisplayName = () => {
@@ -138,15 +139,27 @@ export function AppSidebar() {
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Button>
+            {user && !isGuestMode ? (
+              <Button
+                onClick={handleLogout}
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSignIn}
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In
+              </Button>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

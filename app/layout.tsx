@@ -4,13 +4,14 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/components/auth-provider"
+import { GuestModeProvider } from "@/components/guest-mode-provider"
 import ClientRoot from "@/components/client-root"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "P.L.A.T.E – Your Personal AI Chef",
-  description: "Discover and cook creative meals with the ingredients you have",
+  title: "P.L.A.T.E – Personalized Learning And Assistance For Taste Enhancement",
+  description: "Transform your ingredients into delicious recipes with our intelligent cooking assistant",
   generator: 'v0.dev'
 }
 
@@ -23,9 +24,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <ClientRoot>
-            {children}
-          </ClientRoot>
+          <GuestModeProvider>
+            <ClientRoot>
+              {children}
+            </ClientRoot>
+          </GuestModeProvider>
         </AuthProvider>
       </body>
     </html>

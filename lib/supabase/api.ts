@@ -337,6 +337,69 @@ export class SupabaseAPI {
     }
   }
 
+  /**
+   * Analyze ingredient compatibility
+   */
+  async analyzeIngredientCompatibility(ingredients: string[]) {
+    try {
+      console.log('🔧 SupabaseAPI: Analyzing ingredient compatibility via Edge Function...');
+      const { data: result, error } = await this.supabase.functions.invoke('ingredient-compatibility', {
+        body: { ingredients }
+      })
+      if (error) {
+        console.error('❌ Edge Function error:', error);
+        throw error;
+      }
+      console.log('✅ SupabaseAPI: Ingredient compatibility analyzed successfully:', result);
+      return result
+    } catch (error: any) {
+      console.error('❌ SupabaseAPI: Failed to analyze ingredient compatibility:', error);
+      throw new Error(`Failed to analyze ingredient compatibility: ${error.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Generate smart ingredient suggestions
+   */
+  async generateSmartSuggestions(ingredients: string[], compatibilityLevel?: string) {
+    try {
+      console.log('🔧 SupabaseAPI: Generating smart suggestions via Edge Function...');
+      const { data: result, error } = await this.supabase.functions.invoke('smart-suggestions', {
+        body: { ingredients, compatibilityLevel }
+      })
+      if (error) {
+        console.error('❌ Edge Function error:', error);
+        throw error;
+      }
+      console.log('✅ SupabaseAPI: Smart suggestions generated successfully:', result);
+      return result
+    } catch (error: any) {
+      console.error('❌ SupabaseAPI: Failed to generate smart suggestions:', error);
+      throw new Error(`Failed to generate smart suggestions: ${error.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Generate fallback recipes for incompatible ingredients
+   */
+  async generateFallbackRecipes(userIngredients: string[], compatibilityReason: string) {
+    try {
+      console.log('🔧 SupabaseAPI: Generating fallback recipes via Edge Function...');
+      const { data: result, error } = await this.supabase.functions.invoke('fallback-recipes', {
+        body: { userIngredients, compatibilityReason }
+      })
+      if (error) {
+        console.error('❌ Edge Function error:', error);
+        throw error;
+      }
+      console.log('✅ SupabaseAPI: Fallback recipes generated successfully:', result);
+      return result
+    } catch (error: any) {
+      console.error('❌ SupabaseAPI: Failed to generate fallback recipes:', error);
+      throw new Error(`Failed to generate fallback recipes: ${error.message || 'Unknown error'}`);
+    }
+  }
+
 }
 
 // Export a singleton instance
