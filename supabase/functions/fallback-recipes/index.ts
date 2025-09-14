@@ -803,3 +803,4 @@ function getBasicIngredientAnalysis(ingredients: string[]): any {
     eggs: ingredients.filter(ing => /egg/.test(ing.toLowerCase()))
   }
 }
+

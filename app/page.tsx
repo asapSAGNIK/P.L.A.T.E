@@ -1,16 +1,39 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChefHat, Utensils, Sparkles, ArrowRight, LogIn, Users, Clock, Heart } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LandingPage() {
   const router = useRouter()
-  const { user, loading } = useAuth()
+  const { user, loading, signInWithGoogle } = useAuth()
+  const { toast } = useToast()
+  const [isSigningIn, setIsSigningIn] = useState(false)
+
+  // Handle Google sign-in directly from landing page
+  const handleGoogleSignIn = async () => {
+    setIsSigningIn(true)
+    try {
+      await signInWithGoogle()
+      toast({ 
+        title: "Welcome back, Chef! 👨‍🍳", 
+        description: "Ready to cook something amazing!" 
+      })
+    } catch (error) {
+      toast({ 
+        title: 'Google sign-in failed', 
+        description: error instanceof Error ? error.message : 'An error occurred', 
+        variant: 'destructive' 
+      })
+    } finally {
+      setIsSigningIn(false)
+    }
+  }
 
   // If user is already authenticated, redirect to find-recipes
   useEffect(() => {
@@ -45,12 +68,15 @@ export default function LandingPage() {
             <ChefHat className="h-8 w-8 text-orange-600" />
             <span className="text-2xl font-bold text-gray-900">P.L.A.T.E</span>
           </div>
-          <Link href="/login">
-            <Button variant="outline" className="hidden sm:flex">
-              <LogIn className="mr-2 h-4 w-4" />
-              Sign In
-            </Button>
-          </Link>
+          <Button 
+            variant="outline" 
+            className="hidden sm:flex"
+            onClick={handleGoogleSignIn}
+            disabled={isSigningIn}
+          >
+            <LogIn className="mr-2 h-4 w-4" />
+            {isSigningIn ? "Signing in..." : "Sign In"}
+          </Button>
         </div>
       </header>
 
@@ -81,13 +107,17 @@ export default function LandingPage() {
             </Link>
 
             {/* Sign In Button */}
-            <Link href="/login" className="w-full">
-              <Button size="lg" variant="outline" className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold py-4 text-lg">
-                <LogIn className="mr-3 h-6 w-6" />
-                Sign In
-                <ArrowRight className="ml-3 h-6 w-6" />
-              </Button>
-            </Link>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold py-4 text-lg"
+              onClick={handleGoogleSignIn}
+              disabled={isSigningIn}
+            >
+              <LogIn className="mr-3 h-6 w-6" />
+              {isSigningIn ? "Signing in..." : "Sign In"}
+              <ArrowRight className="ml-3 h-6 w-6" />
+            </Button>
           </div>
 
           {/* Footer */}
