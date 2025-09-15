@@ -68,15 +68,7 @@ export default function LandingPage() {
             <ChefHat className="h-8 w-8 text-orange-600" />
             <span className="text-2xl font-bold text-gray-900">P.L.A.T.E</span>
           </div>
-          <Button 
-            variant="outline" 
-            className="hidden sm:flex"
-            onClick={handleGoogleSignIn}
-            disabled={isSigningIn}
-          >
-            <LogIn className="mr-2 h-4 w-4" />
-            {isSigningIn ? "Signing in..." : "Sign In"}
-          </Button>
+          {/* Top-right sign in button removed for cleaner header */}
         </div>
       </header>
 

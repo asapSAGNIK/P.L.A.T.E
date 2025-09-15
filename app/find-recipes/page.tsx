@@ -170,14 +170,16 @@ function FindRecipesContent() {
     }
   }
 
-  // Define mood to filter mappings
+  // Define mood to filter mappings (updated to match MoodSelector values)
   const moodMappings: { [key: string]: { cuisine?: string; mealType?: string; maxTime?: number; query?: string; diet?: string; includeIngredients?: string; } } = {
-    "cozy-warm": { query: "comfort food", maxTime: 60, mealType: "main course" },
-    "light-healthy": { diet: "vegetarian", maxTime: 45, query: "salad,soup,healthy" },
-    "adventurous": { cuisine: "thai,indian,mexican", query: "spicy,exotic" },
-    "quick-easy": { maxTime: 30, query: "quick,easy" },
+    "comfort": { query: "comfort food", maxTime: 60, mealType: "main course" },
+    "healthy": { diet: "vegetarian", maxTime: 45, query: "salad,soup,healthy" },
+    "spicy": { query: "spicy,exotic" },
+    "quick": { maxTime: 30, query: "quick,easy" },
     "indulgent": { query: "dessert,rich", mealType: "dessert" },
-    "fresh-vibrant": { query: "fresh,vibrant", includeIngredients: "lemon,herbs,vegetables", diet: "vegan" },
+    "exotic": { query: "exotic,unique,adventurous" }, // Removed cuisine override to respect user selection
+    "light": { query: "fresh,light,bright", diet: "vegetarian" },
+    "cozy": { query: "cozy,warm,comforting", maxTime: 60, mealType: "main course" },
   };
 
   // Set initial mode from URL params
@@ -488,16 +490,20 @@ function FindRecipesContent() {
         }
       });
       
+      // Get mood mapping for explore mode
+      const moodMapping = mode === "explore" && mood.trim() ? moodMappings[mood] : null;
+      const queryForAPI = mode === "explore" && mood.trim() ? (moodMapping?.query || mood.trim()) : undefined;
+      
       const searchData = await supabaseAPI.generateRecipes({
         ingredients: mode === "fridge" && ingredients.length > 0 ? ingredients : undefined,
-        query: mode === "explore" && mood.trim() ? mood.trim() : undefined,
+        query: queryForAPI,
         mode: mode,
         filters: {
-          maxTime: cookingTime[0],
+          maxTime: moodMapping?.maxTime || cookingTime[0],
           servings: servings[0],
-          cuisine: cuisine,
-          diet: dietMode ? 'vegetarian' : undefined,
-          mealType: mealType
+          cuisine: moodMapping?.cuisine || cuisine,
+          diet: moodMapping?.diet || (dietMode ? 'vegetarian' : undefined),
+          mealType: moodMapping?.mealType || mealType
         }
       });
 

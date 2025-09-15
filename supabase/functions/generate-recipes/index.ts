@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 export interface RecipeFilters {
@@ -445,7 +446,15 @@ async function generateSingleRecipe(
   try {
     const recipePrompt = generateRecipePrompt(ingredients, query, filters, recipeNumber, mode);
     
-    console.log('Generating AI recipe', { recipeNumber, ingredients, filters, mode });
+    console.log('Generating AI recipe', { 
+      recipeNumber, 
+      ingredients, 
+      query, 
+      filters, 
+      mode,
+      promptLength: recipePrompt.length,
+      promptPreview: recipePrompt.substring(0, 200) + '...'
+    });
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
@@ -469,8 +478,14 @@ async function generateSingleRecipe(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
+      console.error('Gemini API error details:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText,
+        requestUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')?.substring(0, 10)}...`,
+        hasApiKey: !!Deno.env.get('GEMINI_API_KEY')
+      });
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -493,11 +508,17 @@ async function generateSingleRecipe(
 
     return parsedRecipe;
   } catch (error: any) {
-    console.error('Error generating single recipe', {
+    console.error('Error generating single recipe - FULL DETAILS:', {
       error: error.message,
+      errorStack: error.stack,
+      errorName: error.name,
       status: error.response?.status,
       statusText: error.response?.statusText,
-      recipeNumber
+      recipeNumber,
+      ingredients,
+      query,
+      filters,
+      mode
     });
     return null;
   }
@@ -532,7 +553,8 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
   }
 
   if (mode === 'explore' && (!query || query.trim().length === 0)) {
-    throw new Error('Query is required for explore mode.');
+    console.warn('Explore mode without query, using fallback');
+    // Don't throw error, just use a fallback query
   }
 
   // Pre-generation validation for ingredient constraints
@@ -541,7 +563,12 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
     // Don't throw error, but log warning for monitoring
   }
 
-  console.log('Starting AI recipe generation', { ingredients, query, filters, mode });
+  // Use fallback query for explore mode if none provided
+  const finalQuery = mode === 'explore' && (!query || query.trim().length === 0) 
+    ? 'delicious creative recipe' 
+    : query;
+    
+  console.log('Starting AI recipe generation', { ingredients, query: finalQuery, filters, mode });
 
   const numberOfRecipes = 2;
   const aiRecipes: AIRecipe[] = [];
@@ -578,15 +605,15 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
       console.log('Limited ingredients - using all for both recipes');
     }
   } else {
-    // For explore mode or no ingredients
-    ingredientGroups = ingredients ? [ingredients] : [];
+    // For explore mode or no ingredients - create 2 empty groups to ensure 2 recipes
+    ingredientGroups = [[], []];
   }
 
   // Generate recipes using smart ingredient groups
   for (let i = 0; i < Math.min(numberOfRecipes, ingredientGroups.length); i++) {
     try {
       const groupIngredients = ingredientGroups[i];
-      const recipe = await generateSingleRecipe(groupIngredients, query, filters, i + 1, mode);
+      const recipe = await generateSingleRecipe(groupIngredients, finalQuery, filters, i + 1, mode);
 
       if (recipe) {
         // Mark AI-added ingredients as required
@@ -630,18 +657,6 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
             title: recipe.title,
             existingTitles: aiRecipes.map(r => r.title)
           });
-          // Try to generate a different recipe with more specific variety instructions
-          const alternativeRecipe = await generateSingleRecipe(groupIngredients, query, filters, i + 1, mode);
-          if (alternativeRecipe && !aiRecipes.some(r => {
-            const titleMatch = r.title.toLowerCase() === alternativeRecipe.title.toLowerCase();
-            const similarWords = ['cheesy', 'cheese', 'simple', 'easy', 'quick'];
-            const hasSimilarWords = similarWords.some(word => 
-              r.title.toLowerCase().includes(word) && alternativeRecipe.title.toLowerCase().includes(word)
-            );
-            return titleMatch || hasSimilarWords;
-          })) {
-            aiRecipes.push(alternativeRecipe);
-          }
         }
       }
       
@@ -657,7 +672,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
         console.warn('No recipes generated yet, attempting fallback generation');
         await new Promise(resolve => setTimeout(resolve, 5000));
         try {
-          const fallbackRecipe = await generateSingleRecipe(ingredients, query, filters, 1, mode);
+          const fallbackRecipe = await generateSingleRecipe(ingredients, finalQuery, filters, 1, mode);
           if (fallbackRecipe) {
             aiRecipes.push(fallbackRecipe);
             console.log('✅ Fallback recipe generated successfully');
@@ -675,6 +690,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
     generated: aiRecipes.length,
     mode
   });
+
 
   if (aiRecipes.length === 0) {
     // Provide a fallback error message based on the mode
