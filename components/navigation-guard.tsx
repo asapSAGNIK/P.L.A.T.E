@@ -13,7 +13,6 @@ interface NavigationGuardProps {
 const GUEST_ALLOWED_ROUTES = [
   '/',
   '/find-recipes',
-  '/login',
   '/register'
 ]
 
@@ -29,7 +28,7 @@ const PROTECTED_ROUTES = [
 export function NavigationGuard({ children }: NavigationGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, loading } = useAuth()
+  const { user, loading, signInWithGoogle } = useAuth()
   const { isGuestMode, redirectToSignIn } = useGuestMode()
 
   useEffect(() => {
@@ -48,7 +47,10 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
       )
       
       if (!isAllowedRoute) {
-        redirectToSignIn(false)
+        // Directly trigger Google OAuth instead of redirecting to landing page
+        signInWithGoogle().catch(error => {
+          console.error('Error signing in:', error);
+        })
         return
       }
     }
@@ -60,11 +62,11 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
       )
       
       if (isProtectedRoute) {
-        router.push('/login')
+        router.push('/')
         return
       }
     }
-  }, [user, loading, isGuestMode, pathname, router, redirectToSignIn])
+  }, [user, loading, isGuestMode, pathname, router, redirectToSignIn, signInWithGoogle])
 
   return <>{children}</>
 }

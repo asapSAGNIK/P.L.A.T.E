@@ -69,7 +69,7 @@ export default function RegisterPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
+    <div className="min-h-screen  flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -89,7 +89,7 @@ export default function RegisterPage() {
         <CardFooter className="text-center">
           <p className="text-sm text-muted-foreground">
             Already a chef?{" "}
-            <Link href="/login" className="text-orange-600 hover:underline font-medium">
+            <Link href="/" className="text-orange-600 hover:underline font-medium">
               Sign in here
             </Link>
           </p>

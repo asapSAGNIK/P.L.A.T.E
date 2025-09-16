@@ -11,7 +11,7 @@ export default function FindRecipesLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset className="bg-gradient-to-br from-pink-100 via-orange-100 to-yellow-100">{children}</SidebarInset>
     </SidebarProvider>
   )
 }

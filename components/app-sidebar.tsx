@@ -53,7 +53,7 @@ const menuItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter() // Initialize useRouter
-  const { user, loading } = useAuth()
+  const { user, loading, signInWithGoogle } = useAuth()
   const { isGuestMode, redirectToSignIn } = useGuestMode()
 
   const handleLogout = async () => {
@@ -66,8 +66,12 @@ export function AppSidebar() {
     }
   }
 
-  const handleSignIn = () => {
-    redirectToSignIn(false)
+  const handleSignIn = async () => {
+    try {
+      await signInWithGoogle()
+    } catch (error) {
+      console.error('Error signing in:', error);
+    }
   }
 
   const getDisplayName = () => {

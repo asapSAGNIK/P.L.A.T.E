@@ -65,7 +65,7 @@ function GuestModeProviderContent({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem('redirectAfterSignIn', '/find-recipes')
       }
     }
-    router.push('/login')
+    router.push('/')
   }
 
   // Load guest form data from sessionStorage on mount

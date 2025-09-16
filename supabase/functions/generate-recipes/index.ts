@@ -4,7 +4,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 export interface RecipeFilters {
@@ -446,14 +445,11 @@ async function generateSingleRecipe(
   try {
     const recipePrompt = generateRecipePrompt(ingredients, query, filters, recipeNumber, mode);
     
-    console.log('Generating AI recipe', { 
-      recipeNumber, 
-      ingredients, 
-      query, 
-      filters, 
-      mode,
-      promptLength: recipePrompt.length,
-      promptPreview: recipePrompt.substring(0, 200) + '...'
+    console.log('Generating AI recipe', { recipeNumber, ingredients, filters, mode });
+    console.log('Gemini API call starting', {
+      hasApiKey: !!Deno.env.get('GEMINI_API_KEY'),
+      apiKeyLength: Deno.env.get('GEMINI_API_KEY')?.length || 0,
+      promptLength: recipePrompt.length
     });
     
     const response = await fetch(
@@ -478,12 +474,13 @@ async function generateSingleRecipe(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error details:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorText: errorText,
-        requestUrl: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')?.substring(0, 10)}...`,
-        hasApiKey: !!Deno.env.get('GEMINI_API_KEY')
+      console.error('Gemini API error:', response.status, errorText);
+      console.error('Gemini API request details:', {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,
+        hasApiKey: !!Deno.env.get('GEMINI_API_KEY'),
+        apiKeyLength: Deno.env.get('GEMINI_API_KEY')?.length || 0,
+        requestMethod: 'POST',
+        contentType: 'application/json'
       });
       throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
     }
@@ -508,17 +505,11 @@ async function generateSingleRecipe(
 
     return parsedRecipe;
   } catch (error: any) {
-    console.error('Error generating single recipe - FULL DETAILS:', {
+    console.error('Error generating single recipe', {
       error: error.message,
-      errorStack: error.stack,
-      errorName: error.name,
       status: error.response?.status,
       statusText: error.response?.statusText,
-      recipeNumber,
-      ingredients,
-      query,
-      filters,
-      mode
+      recipeNumber
     });
     return null;
   }
@@ -553,8 +544,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
   }
 
   if (mode === 'explore' && (!query || query.trim().length === 0)) {
-    console.warn('Explore mode without query, using fallback');
-    // Don't throw error, just use a fallback query
+    throw new Error('Query is required for explore mode.');
   }
 
   // Pre-generation validation for ingredient constraints
@@ -563,12 +553,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
     // Don't throw error, but log warning for monitoring
   }
 
-  // Use fallback query for explore mode if none provided
-  const finalQuery = mode === 'explore' && (!query || query.trim().length === 0) 
-    ? 'delicious creative recipe' 
-    : query;
-    
-  console.log('Starting AI recipe generation', { ingredients, query: finalQuery, filters, mode });
+  console.log('Starting AI recipe generation', { ingredients, query, filters, mode });
 
   const numberOfRecipes = 2;
   const aiRecipes: AIRecipe[] = [];
@@ -605,15 +590,20 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
       console.log('Limited ingredients - using all for both recipes');
     }
   } else {
-    // For explore mode or no ingredients - create 2 empty groups to ensure 2 recipes
-    ingredientGroups = [[], []];
+    // For explore mode or no ingredients
+    if (mode === 'explore') {
+      // Explore mode can work with just a query, create empty ingredient groups
+      ingredientGroups = [[], []]; // Two empty groups for two recipes
+    } else {
+      ingredientGroups = ingredients ? [ingredients] : [];
+    }
   }
 
   // Generate recipes using smart ingredient groups
   for (let i = 0; i < Math.min(numberOfRecipes, ingredientGroups.length); i++) {
     try {
       const groupIngredients = ingredientGroups[i];
-      const recipe = await generateSingleRecipe(groupIngredients, finalQuery, filters, i + 1, mode);
+      const recipe = await generateSingleRecipe(groupIngredients, query, filters, i + 1, mode);
 
       if (recipe) {
         // Mark AI-added ingredients as required
@@ -657,6 +647,18 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
             title: recipe.title,
             existingTitles: aiRecipes.map(r => r.title)
           });
+          // Try to generate a different recipe with more specific variety instructions
+          const alternativeRecipe = await generateSingleRecipe(groupIngredients, query, filters, i + 1, mode);
+          if (alternativeRecipe && !aiRecipes.some(r => {
+            const titleMatch = r.title.toLowerCase() === alternativeRecipe.title.toLowerCase();
+            const similarWords = ['cheesy', 'cheese', 'simple', 'easy', 'quick'];
+            const hasSimilarWords = similarWords.some(word => 
+              r.title.toLowerCase().includes(word) && alternativeRecipe.title.toLowerCase().includes(word)
+            );
+            return titleMatch || hasSimilarWords;
+          })) {
+            aiRecipes.push(alternativeRecipe);
+          }
         }
       }
       
@@ -672,7 +674,7 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
         console.warn('No recipes generated yet, attempting fallback generation');
         await new Promise(resolve => setTimeout(resolve, 5000));
         try {
-          const fallbackRecipe = await generateSingleRecipe(ingredients, finalQuery, filters, 1, mode);
+          const fallbackRecipe = await generateSingleRecipe(ingredients, query, filters, 1, mode);
           if (fallbackRecipe) {
             aiRecipes.push(fallbackRecipe);
             console.log('✅ Fallback recipe generated successfully');
@@ -691,7 +693,6 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
     mode
   });
 
-
   if (aiRecipes.length === 0) {
     // Provide a fallback error message based on the mode
     const fallbackMessage = mode === 'fridge' 
@@ -708,12 +709,19 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
 }
 
 serve(async (req) => {
+  console.log('=== EDGE FUNCTION STARTED ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+  
   // Handle CORS
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    console.log('Starting main request processing...');
   // Create Supabase client
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://lmdoqtkotwbgbsudreff.supabase.co'
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -729,7 +737,9 @@ serve(async (req) => {
     )
   }
   
+  console.log('Environment variables check passed');
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  console.log('Supabase client created successfully');
 
     // Get authorization header
     const authHeader = req.headers.get('Authorization')
@@ -823,8 +833,15 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in generate-recipes function:', error)
+    console.error('Error stack:', error.stack)
+    console.error('Error details:', JSON.stringify(error, null, 2))
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        details: error.stack || 'No stack trace available',
+        errorType: typeof error,
+        errorData: error
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
@@ -832,3 +849,4 @@ serve(async (req) => {
     )
   }
 })
+

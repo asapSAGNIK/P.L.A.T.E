@@ -225,7 +225,7 @@ function RecipesContent() {
 
 export default function RecipesPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
+    <div className="flex flex-col min-h-screen ">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="flex h-16 items-center px-4 gap-4">
           <SidebarTrigger />
