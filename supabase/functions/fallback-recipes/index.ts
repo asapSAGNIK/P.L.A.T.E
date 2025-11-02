@@ -1,4 +1,8 @@
+/// <reference path="../deno.d.ts" />
+// deno-lint-ignore-file no-explicit-any
+// @ts-ignore URL import types are provided via deno.d.ts for editors
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore URL import types are provided via deno.d.ts for editors
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -205,36 +209,55 @@ async function classifyIngredient(ingredient: string): Promise<string> {
 
 Return only the category name.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'P.L.A.T.E-App/1.0'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            topK: 20,
-            topP: 0.8,
-            maxOutputTokens: 50,
-          }
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const category = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase();
+    // Use valid model with fallback (backward compatible)
+    const modelName = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
     
-    return category || 'other';
-  } catch (error) {
-    console.warn('AI classification failed, using fallback:', error);
+    // Create timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'P.L.A.T.E-App/1.0'
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              topK: 20,
+              topP: 0.8,
+              maxOutputTokens: 50,
+            }
+          }),
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const category = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase();
+      
+      return category || 'other';
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.warn('AI classification timeout, using fallback');
+      } else {
+        console.warn('AI classification failed, using fallback:', error);
+      }
+      return 'other';
+    }
+  } catch (error: any) {
+    console.warn('Classification failed:', error);
     return 'other';
   }
 }
@@ -274,42 +297,52 @@ Return JSON array with this exact structure:
 
 Focus on practicality and ease of preparation.`
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'P.L.A.T.E-App/1.0'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
+    // Use valid model with fallback (backward compatible)
+    const modelName = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
+    
+    // Create timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'P.L.A.T.E-App/1.0'
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
             topK: 40,
             topP: 0.95,
             maxOutputTokens: 1024,
           }
         }),
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`)
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`)
-    }
+      const data = await response.json()
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text
 
-    const data = await response.json()
-    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!aiText) {
+        throw new Error('No response from Gemini API')
+      }
 
-    if (!aiText) {
-      throw new Error('No response from Gemini API')
-    }
+      const aiRecipes = JSON.parse(aiText)
 
-    const aiRecipes = JSON.parse(aiText)
-
-    return aiRecipes.map((recipe: any, index: number) => {
-      // Process ingredients to mark required ones
-      const processedIngredients = (recipe.ingredients || []).map((ing: string) => {
+      return aiRecipes.map((recipe: any, index: number) => {
+        // Process ingredients to mark required ones
+        const processedIngredients = (recipe.ingredients || []).map((ing: string) => {
         const ingLower = ing.toLowerCase().trim();
         const userIngredientsLower = userIngredients.map((ui: string) => ui.toLowerCase().trim());
 
@@ -317,28 +350,36 @@ Focus on practicality and ease of preparation.`
           ingLower.includes(userIng) || userIng.includes(ingLower)
         );
 
+          return {
+            name: ing,
+            required: !isUserProvided
+          };
+        });
+
         return {
-          name: ing,
-          required: !isUserProvided
+          id: `fallback-ai-${Date.now()}-${index}`,
+          title: recipe.title,
+          description: recipe.description,
+          ingredients: processedIngredients,
+          requiredIngredients: recipe.requiredIngredients || [],
+          cookingTime: recipe.cookingTime || 20,
+          difficulty: recipe.difficulty || 'Easy',
+          servings: recipe.servings || 2,
+          instructions: recipe.instructions || '',
+          isFallback: true as const,
+          userIngredients,
+          compatibility: recipe.compatibility || 'Fallback recipe'
         };
-      });
-
-      return {
-        id: `fallback-ai-${Date.now()}-${index}`,
-        title: recipe.title,
-        description: recipe.description,
-        ingredients: processedIngredients,
-        requiredIngredients: recipe.requiredIngredients || [],
-        cookingTime: recipe.cookingTime || 20,
-        difficulty: recipe.difficulty || 'Easy',
-        servings: recipe.servings || 2,
-        instructions: recipe.instructions || '',
-        isFallback: true as const,
-        userIngredients,
-        compatibility: recipe.compatibility || 'Fallback recipe'
-      };
-    })
-
+      })
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.warn('AI fallback recipe generation timeout');
+      } else {
+        console.error('AI fallback generation failed:', error);
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('AI fallback generation failed:', error)
     return []
@@ -619,7 +660,7 @@ function getFallbackMessage(ingredients: string[], reason: string): string {
   return "These ingredients don't work perfectly together. Here are some practical alternatives using easily available items:"
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -771,10 +812,10 @@ serve(async (req) => {
       )
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in fallback-recipes function:', error)
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: (error && error.message) || 'Internal server error' }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
@@ -803,6 +844,8 @@ function getBasicIngredientAnalysis(ingredients: string[]): any {
     eggs: ingredients.filter(ing => /egg/.test(ing.toLowerCase()))
   }
 }
+
+
 
 
 

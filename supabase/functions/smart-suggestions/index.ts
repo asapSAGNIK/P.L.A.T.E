@@ -1,4 +1,9 @@
+/// <reference path="../deno.d.ts" />
+// deno-lint-ignore-file no-explicit-any
+// TypeScript in-editor resolution for remote modules is provided via ../deno.d.ts
+// @ts-ignore URL import types are provided via deno.d.ts for editors
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore URL import types are provided via deno.d.ts for editors
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -154,47 +159,64 @@ Return JSON array with this structure:
 
 Be specific and practical. Consider cultural and regional preferences.`
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'P.L.A.T.E-App/1.0'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          }
-        }),
+    // Use valid model with fallback (backward compatible)
+    const modelName = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
+    
+    // Create timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'P.L.A.T.E-App/1.0'
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 1024,
+            }
+          }),
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`)
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`)
+      const data = await response.json()
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text
+
+      if (!aiText) {
+        throw new Error('No response from Gemini API')
+      }
+
+      const aiSuggestions = JSON.parse(aiText)
+
+      return aiSuggestions.map((suggestion: any) => ({
+        type: suggestion.type || 'add',
+        ingredient: suggestion.ingredient,
+        reason: suggestion.reason,
+        priority: suggestion.priority || 'medium',
+        category: suggestion.category,
+        alternatives: suggestion.alternatives || []
+      }))
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout: Gemini API took too long to respond')
+      }
+      throw error;
     }
-
-    const data = await response.json()
-    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text
-
-    if (!aiText) {
-      throw new Error('No response from Gemini API')
-    }
-
-    const aiSuggestions = JSON.parse(aiText)
-
-    return aiSuggestions.map((suggestion: any) => ({
-      type: suggestion.type || 'add',
-      ingredient: suggestion.ingredient,
-      reason: suggestion.reason,
-      priority: suggestion.priority || 'medium',
-      category: suggestion.category,
-      alternatives: suggestion.alternatives || []
-    }))
 
   } catch (error) {
     console.error('AI suggestion generation failed:', error)
@@ -369,7 +391,7 @@ function generateOverallMessage(
   return "Your ingredient combination could be enhanced. Here are some practical suggestions:"
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -509,10 +531,10 @@ serve(async (req) => {
       )
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in smart-suggestions function:', error)
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: (error && error.message) || 'Internal server error' }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
@@ -520,6 +542,8 @@ serve(async (req) => {
     )
   }
 })
+
+
 
 
 

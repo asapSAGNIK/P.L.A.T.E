@@ -8,8 +8,9 @@ export async function callGeminiAPI(prompt: string): Promise<string> {
   }
 
   try {
+    const modelName = process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-1.5-pro-latest'
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {

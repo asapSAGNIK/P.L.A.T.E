@@ -43,37 +43,56 @@ async function classifyIngredient(ingredient: string): Promise<string> {
 
 Return only the category name.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'P.L.A.T.E-App/1.0'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            topK: 20,
-            topP: 0.8,
-            maxOutputTokens: 50,
-          }
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const category = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase();
+    // Use valid model with fallback (backward compatible)
+    const modelName = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
     
-    // Fallback classification if AI fails
-    return category || classifyIngredientFallback(ingredient);
-  } catch (error) {
-    console.warn('AI classification failed, using fallback:', error);
+    // Create timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'P.L.A.T.E-App/1.0'
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              topK: 20,
+              topP: 0.8,
+              maxOutputTokens: 50,
+            }
+          }),
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const category = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase();
+      
+      // Fallback classification if AI fails
+      return category || classifyIngredientFallback(ingredient);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.warn('AI classification timeout, using fallback');
+      } else {
+        console.warn('AI classification failed, using fallback:', error);
+      }
+      return classifyIngredientFallback(ingredient);
+    }
+  } catch (error: any) {
+    console.warn('Classification failed:', error);
     return classifyIngredientFallback(ingredient);
   }
 }
@@ -375,6 +394,8 @@ serve(async (req) => {
     )
   }
 })
+
+
 
 
 

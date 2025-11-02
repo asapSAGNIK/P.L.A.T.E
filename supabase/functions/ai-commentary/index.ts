@@ -80,7 +80,7 @@ async function generateAICommentary(request: CommentaryRequest) {
     console.log('Making Gemini API request for:', type)
     
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: {

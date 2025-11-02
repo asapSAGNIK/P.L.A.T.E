@@ -1,4 +1,9 @@
+/// <reference path="../deno.d.ts" />
+// deno-lint-ignore-file no-explicit-any
+// TypeScript in-editor resolution for remote modules is provided via ../deno.d.ts
+// @ts-ignore URL import types are provided via deno.d.ts for editors
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore URL import types are provided via deno.d.ts for editors
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -435,6 +440,223 @@ async function getUserRateLimitStatus(supabase: any, userId: string) {
   }
 }
 
+/**
+ * Robust Model Management System
+ * Provides fallback chain and validation for Gemini models
+ */
+const VALID_GEMINI_MODELS = [
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
+  'gemini-1.5-pro',
+  'gemini-1.5-flash',
+  'gemini-pro',
+  'gemini-1.5-pro-latest', // Deprecated but handled gracefully
+] as const;
+
+/**
+ * Get model name with fallback chain
+ * Backward compatible: respects GEMINI_MODEL env var, falls back to valid defaults
+ */
+function getGeminiModel(): string {
+  // Priority 1: User-defined model from environment (backward compatible)
+  const envModel = Deno.env.get('GEMINI_MODEL');
+  if (envModel) {
+    // Validate env model is in fallback chain
+    if (VALID_GEMINI_MODELS.includes(envModel as any)) {
+      console.log('Using configured model from environment:', envModel);
+      return envModel;
+    } else {
+      console.warn('Configured model not in supported list, using fallback chain:', envModel);
+    }
+  }
+
+  // Priority 2: Default fallback chain (most capable to fastest)
+  const fallbackChain = [
+    'gemini-2.5-pro',      // Primary: Most capable (latest)
+    'gemini-2.5-flash',    // Secondary: Fast and capable
+    'gemini-1.5-pro',       // Tertiary: Fallback to 1.5 if 2.5 unavailable
+    'gemini-1.5-flash',    // Quaternary: Fast fallback
+  ];
+
+  // For now, return primary model (can be enhanced with availability checking)
+  const selectedModel = fallbackChain[0];
+  console.log('Using default model with fallback chain available:', selectedModel);
+  return selectedModel;
+}
+
+/**
+ * Create a fetch request with timeout protection
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = 60000 // 60 seconds default
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Retry function with exponential backoff
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelayMs: number = 1000,
+  context: string = 'operation'
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Don't retry on certain errors (4xx client errors except 429)
+      if (error.message && error.message.includes('Gemini API error:')) {
+        const statusMatch = error.message.match(/Gemini API error: (\d+)/);
+        if (statusMatch) {
+          const statusCode = parseInt(statusMatch[1]);
+          // Don't retry on 4xx errors (except 429 rate limit)
+          if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
+            console.error(`${context} failed with client error, not retrying:`, statusCode);
+            throw error;
+          }
+        }
+      }
+      
+      if (attempt < maxRetries) {
+        const delayMs = initialDelayMs * Math.pow(2, attempt);
+        console.warn(`${context} failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delayMs}ms...`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } else {
+        console.error(`${context} failed after ${maxRetries + 1} attempts`);
+      }
+    }
+  }
+  
+  throw lastError || new Error(`${context} failed after ${maxRetries + 1} attempts`);
+}
+
+/**
+ * Call Gemini API with robust error handling, retry logic, and timeout protection
+ */
+async function callGeminiAPI(
+  prompt: string,
+  modelName: string,
+  retryAttempt: number = 0
+): Promise<{ text: string; model: string }> {
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!geminiApiKey) {
+    throw new Error('Gemini API key not configured');
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${geminiApiKey}`;
+  
+  const requestBody = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.8,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 2048,
+    }
+  };
+
+  const requestOptions: RequestInit = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'P.L.A.T.E-App/1.0'
+    },
+    body: JSON.stringify(requestBody),
+  };
+
+  try {
+    // Use fetchWithTimeout for timeout protection (60 seconds)
+    const response = await fetchWithTimeout(url, requestOptions, 60000);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+
+      // Handle 404 - model not found (try fallback)
+      if (response.status === 404) {
+        const fallbackChain = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+        const currentIndex = fallbackChain.indexOf(modelName);
+        
+        if (currentIndex >= 0 && currentIndex < fallbackChain.length - 1) {
+          const nextModel = fallbackChain[currentIndex + 1];
+          console.warn(`Model ${modelName} not found (404), trying fallback: ${nextModel}`);
+          return await callGeminiAPI(prompt, nextModel, retryAttempt + 1);
+        }
+        
+        // Last resort - return error with available models
+        const availableModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+        throw new Error(`Model ${modelName} not found. Available models: ${availableModels.join(', ')}`);
+      }
+
+      // Log detailed error info
+      console.error('Gemini API error:', response.status, errorText);
+      console.error('Gemini API request details:', {
+        url,
+        model: modelName,
+        hasApiKey: !!geminiApiKey,
+        apiKeyLength: geminiApiKey?.length || 0,
+        requestMethod: 'POST',
+        contentType: 'application/json',
+        statusCode: response.status
+      });
+
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!aiText) {
+      throw new Error('No text generated from Gemini API');
+    }
+
+    return { text: aiText, model: modelName };
+  } catch (error: any) {
+    // If timeout or network error, and we have retries left, retry with same model
+    if (retryAttempt < 2 && (
+      error.message?.includes('timeout') ||
+      error.message?.includes('network') ||
+      error.name === 'AbortError'
+    )) {
+      const delayMs = 2000 * (retryAttempt + 1); // 2s, 4s
+      console.warn(`Request failed (attempt ${retryAttempt + 1}), retrying in ${delayMs}ms...`, error.message);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      return await callGeminiAPI(prompt, modelName, retryAttempt + 1);
+    }
+
+    throw error;
+  }
+}
+
 async function generateSingleRecipe(
   ingredients: string[] | undefined,
   query: string | undefined,
@@ -452,46 +674,31 @@ async function generateSingleRecipe(
       promptLength: recipePrompt.length
     });
     
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Deno.env.get('GEMINI_API_KEY')}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'P.L.A.T.E-App/1.0'
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: recipePrompt }] }],
-          generationConfig: {
-            temperature: 0.8,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048,
-          }
-        }),
-      }
+    // Use robust model selection with fallback chain
+    const modelName = getGeminiModel();
+    console.log('Gemini model selected:', modelName);
+    
+    // Use robust API call with timeout, retry, and fallback support
+    const result = await retryWithBackoff(
+      () => callGeminiAPI(recipePrompt, modelName),
+      2, // Max 2 retries (3 total attempts)
+      2000, // Initial 2 second delay
+      `Recipe generation ${recipeNumber}`
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
-      console.error('Gemini API request details:', {
-        url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,
-        hasApiKey: !!Deno.env.get('GEMINI_API_KEY'),
-        apiKeyLength: Deno.env.get('GEMINI_API_KEY')?.length || 0,
-        requestMethod: 'POST',
-        contentType: 'application/json'
-      });
-      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const aiText = result.text;
+    const usedModel = result.model;
 
     if (!aiText) {
-      console.warn('No AI text generated', { recipeNumber });
+      console.warn('No AI text generated', { recipeNumber, model: usedModel });
       return null;
     }
+
+    console.log('AI response received', { 
+      recipeNumber, 
+      model: usedModel,
+      textLength: aiText.length 
+    });
 
     const parsedRecipe = parseAIRecipe(aiText, recipeNumber, ingredients, filters);
     if (parsedRecipe) {
@@ -499,7 +706,8 @@ async function generateSingleRecipe(
         recipeNumber,
         title: parsedRecipe.title,
         ingredientsCount: parsedRecipe.ingredients.length,
-        mode
+        mode,
+        model: usedModel
       });
     }
 
@@ -509,7 +717,8 @@ async function generateSingleRecipe(
       error: error.message,
       status: error.response?.status,
       statusText: error.response?.statusText,
-      recipeNumber
+      recipeNumber,
+      stack: error.stack
     });
     return null;
   }
@@ -708,11 +917,12 @@ export async function generateAIRecipes(request: RecipeGenerationRequest): Promi
   return aiRecipes;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   console.log('=== EDGE FUNCTION STARTED ===');
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
-  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+  const headersObj = Object.fromEntries(req.headers as any as Iterable<[string, string]>);
+  console.log('Request headers:', headersObj);
   
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -831,14 +1041,14 @@ serve(async (req) => {
       }
     )
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in generate-recipes function:', error)
-    console.error('Error stack:', error.stack)
+    console.error('Error stack:', error?.stack)
     console.error('Error details:', JSON.stringify(error, null, 2))
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error',
-        details: error.stack || 'No stack trace available',
+        error: (error && error.message) || 'Internal server error',
+        details: (error && error.stack) || 'No stack trace available',
         errorType: typeof error,
         errorData: error
       }),
