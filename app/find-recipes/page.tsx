@@ -693,8 +693,20 @@ function FindRecipesContent() {
                     </div>
                     <Input
                       type="number"
-                      value={cookingTime[0]}
-                      onChange={(e) => setCookingTime([Number(e.target.value)])}
+                      value={cookingTime[0] && cookingTime[0] >= 10 ? cookingTime[0] : 30}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || val === null || val === undefined) {
+                          setCookingTime([30]);
+                        } else {
+                          const num = Number(val);
+                          if (!isNaN(num) && num >= 10 && num <= 120) {
+                            setCookingTime([num]);
+                          } else if (num === 0 || num < 10) {
+                            setCookingTime([30]);
+                          }
+                        }
+                      }}
                       placeholder="e.g., 30"
                       min={10}
                       max={120}
@@ -715,8 +727,20 @@ function FindRecipesContent() {
                     </div>
                     <Input
                       type="number"
-                      value={servings[0]}
-                      onChange={(e) => setServings([Number(e.target.value)])}
+                      value={servings[0] && servings[0] >= 1 ? servings[0] : 2}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || val === null || val === undefined) {
+                          setServings([2]);
+                        } else {
+                          const num = Number(val);
+                          if (!isNaN(num) && num >= 1 && num <= 12) {
+                            setServings([num]);
+                          } else if (num === 0 || num < 1) {
+                            setServings([2]);
+                          }
+                        }
+                      }}
                       placeholder="e.g., 2"
                       min={1}
                       max={12}
